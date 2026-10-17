@@ -1,0 +1,26 @@
+{
+  "name": "eclipse-sanctum-3d-boss-rush-rpg",
+  "version": "1.0.0",
+  "description": "A high-octane 3D Dark Fantasy Boss Rush Action RPG built with Three.js, WebGL, Web Audio API, and Tailwind CSS.",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx -y serve . -p 3000",
+    "dev": "npx -y serve . -p 3000",
+    "serve": "npx -y serve . -p 3000",
+    "preview": "npx -y serve . -p 3000"
+  },
+  "keywords": [
+    "game",
+    "threejs",
+    "rpg",
+    "boss-rush",
+    "souls-like",
+    "action-rpg",
+    "webgl",
+    "3d",
+    "dark-fantasy",
+    "web-audio"
+  ],
+  "author": "Antigravity & Eclipse Sanctum Team",
+  "license": "MIT"
+}

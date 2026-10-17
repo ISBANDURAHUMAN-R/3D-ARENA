@@ -1,0 +1,4564 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>ECLIPSE SANCTUM — 3D Fantasy Boss Rush Action RPG</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Cinzel (Gothic Dark Fantasy) & Inter (Clean HUD UI) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
+  <!-- Three.js r128 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <style>
+    :root {
+      --gold: #eab308;
+      --crimson: #dc2626;
+      --arcane: #a855f7;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #050509;
+      font-family: 'Inter', sans-serif;
+      color: #f3f4f6;
+    }
+
+    .font-gothic {
+      font-family: 'Cinzel', serif;
+      letter-spacing: 0.08em;
+    }
+
+    .font-mono-num {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    #game-canvas-container {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Glass Dark Fantasy Panels */
+    .sanctum-panel {
+      background: rgba(12, 13, 20, 0.84);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(234, 179, 8, 0.24);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .sanctum-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      padding: 0.48rem 0.9rem;
+      border-radius: 0.5rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #f3f4f6;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      transition: all 0.18s ease;
+      cursor: pointer;
+    }
+
+    .sanctum-btn:hover {
+      background: rgba(234, 179, 8, 0.18);
+      border-color: rgba(234, 179, 8, 0.55);
+      color: #fef08a;
+      transform: translateY(-1px);
+    }
+
+    .sanctum-btn:active {
+      transform: translateY(0px) scale(0.97);
+    }
+
+    .sanctum-btn-gold {
+      background: linear-gradient(135deg, rgba(202, 138, 4, 0.35), rgba(161, 98, 7, 0.2));
+      border-color: rgba(250, 204, 21, 0.55);
+      color: #fef08a;
+    }
+
+    /* Smooth Delayed Health Trail Bars */
+    .bar-fill {
+      transition: width 0.1s linear;
+    }
+    .bar-trail {
+      transition: width 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* Souls-style Center Cinematic Banner */
+    @keyframes bannerFadeIn {
+      0% { opacity: 0; transform: scale(0.92); letter-spacing: 0.05em; }
+      20% { opacity: 1; transform: scale(1); letter-spacing: 0.18em; }
+      80% { opacity: 1; transform: scale(1.02); letter-spacing: 0.2em; }
+      100% { opacity: 0; transform: scale(1.06); letter-spacing: 0.24em; }
+    }
+
+    .souls-banner-anim {
+      animation: bannerFadeIn 3.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* Floating Combat Text */
+    @keyframes floatUpFade {
+      0% { opacity: 1; transform: translate(-50%, 0) scale(0.85); }
+      25% { opacity: 1; transform: translate(-50%, -18px) scale(1.08); }
+      100% { opacity: 0; transform: translate(-50%, -54px) scale(0.95); }
+    }
+
+    .floating-dmg {
+      position: absolute;
+      pointer-events: none;
+      animation: floatUpFade 1.05s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.95);
+    }
+
+    /* Screen Vignette for Low HP / Perfect Dodge Slow-Mo */
+    #screen-fx {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 10;
+      transition: box-shadow 0.25s ease, background 0.25s ease;
+    }
+
+    /* --- HIGH-END ANIMATED MOVING SCROLLBARS FOR MODALS & PANELS --- */
+    @keyframes movingScrollGradient {
+      0% {
+        background-position: 0% 0%;
+      }
+      50% {
+        background-position: 0% 100%;
+      }
+      100% {
+        background-position: 0% 0%;
+      }
+    }
+
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: rgba(8, 9, 14, 0.75);
+      border-radius: 9999px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.8);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: linear-gradient(180deg, #eab308, #ef4444, #a855f7, #3b82f6, #eab308);
+      background-size: 100% 400%;
+      animation: movingScrollGradient 4s ease infinite;
+      border-radius: 9999px;
+      border: 1px solid rgba(254, 240, 138, 0.4);
+      box-shadow: 0 0 10px rgba(234, 179, 8, 0.5), inset 0 0 4px rgba(255, 255, 255, 0.3);
+      cursor: pointer;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(180deg, #fef08a, #f87171, #c084fc, #60a5fa, #fef08a);
+      background-size: 100% 400%;
+      box-shadow: 0 0 16px rgba(234, 179, 8, 0.85), inset 0 0 6px rgba(255, 255, 255, 0.6);
+    }
+
+  </style>
+</head>
+<body>
+
+  <!-- 3D WebGL Viewport -->
+  <div id="game-canvas-container"></div>
+
+  <!-- Fullscreen Combat Vignette & Slow-Mo Overlay -->
+  <div id="screen-fx"></div>
+
+  <!-- 3D LOCK-ON RETICLE & FLOATING DAMAGE CONTAINER -->
+  <div id="world-ui-layer" class="fixed inset-0 pointer-events-none z-10 overflow-hidden">
+    <!-- Target Lock-On Reticle -->
+    <div id="lockon-reticle" class="hidden absolute -translate-x-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center">
+      <div class="w-9 h-9 rounded-full border-2 border-amber-400/90 shadow-[0_0_15px_#f59e0b] animate-spin" style="border-style: dashed; animation-duration: 5s;"></div>
+      <div class="absolute w-2 h-2 rounded-full bg-red-500 shadow-[0_0_10px_#ef4444]"></div>
+    </div>
+    <!-- Dynamic Floating Numbers Injected Here -->
+    <div id="floating-text-container"></div>
+  </div>
+
+  <!-- TOP HUD: PLAYER STATS (LEFT) & SANCTUM NAVIGATION BAR (RIGHT) -->
+  <header class="fixed top-3 left-3 right-3 z-20 flex flex-wrap items-start justify-between gap-3 pointer-events-none">
+
+    <!-- PLAYER VITALITY, STAMINA & PROGRESSION BADGES -->
+    <div class="sanctum-panel rounded-xl p-3.5 w-80 sm:w-96 pointer-events-auto flex flex-col gap-2">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-2.5 h-2.5 rotate-45 bg-amber-400 shadow-[0_0_8px_#facc15]"></div>
+          <span class="font-gothic text-xs sm:text-sm font-bold text-amber-100 tracking-wider">ASHEN KNIGHT</span>
+        </div>
+        <div id="player-buff-pill" class="hidden px-2 py-0.5 rounded bg-purple-500/25 border border-purple-400/60 text-[10px] font-bold text-purple-200 uppercase tracking-wider">
+          COUNTER SURGE
+        </div>
+        <span id="player-hp-text" class="font-mono-num text-xs text-stone-300">1000 / 1000</span>
+      </div>
+
+      <!-- Player HP Bar with Delayed Damage Trail -->
+      <div class="relative w-full h-3.5 bg-stone-950 rounded overflow-hidden border border-white/15">
+        <div id="player-hp-trail" class="bar-trail absolute top-0 left-0 h-full bg-amber-400/80" style="width: 100%;"></div>
+        <div id="player-hp-fill" class="bar-fill relative top-0 left-0 h-full bg-gradient-to-r from-red-800 via-red-600 to-rose-500 shadow-[0_0_12px_rgba(220,38,38,0.6)]" style="width: 100%;"></div>
+      </div>
+
+      <!-- Player Stamina Bar -->
+      <div class="flex items-center gap-2">
+        <div class="relative flex-1 h-2.5 bg-stone-950 rounded overflow-hidden border border-white/10">
+          <div id="player-stam-fill" class="bar-fill h-full bg-gradient-to-r from-emerald-700 via-emerald-500 to-teal-300" style="width: 100%;"></div>
+        </div>
+        <span id="player-stam-text" class="font-mono-num text-[11px] text-emerald-300 w-12 text-right">100%</span>
+      </div>
+
+      <!-- Heavy Attack Charge Meter (Shows while charging Right Click / K) -->
+      <div id="charge-bar-wrap" class="hidden flex items-center gap-2 pt-0.5">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-amber-300">Charging Heavy</span>
+        <div class="flex-1 h-1.5 bg-stone-900 rounded overflow-hidden">
+          <div id="charge-bar-fill" class="h-full bg-amber-400" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <!-- Boss Conquest Tracker -->
+      <div class="flex items-center justify-between pt-1 border-t border-white/10 text-[11px] text-stone-400">
+        <span>Bosses Vanquished:</span>
+        <div class="flex items-center gap-1.5" id="boss-completion-badges">
+          <span id="badge-boss-0" class="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-stone-400">I. Knight</span>
+          <span id="badge-boss-1" class="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-stone-400">II. Mage</span>
+          <span id="badge-boss-2" class="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-stone-400">III. Dragon</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SINGLE-LEVEL TOP ACTION & NAVIGATION BAR -->
+    <nav class="sanctum-panel rounded-xl p-1.5 flex flex-wrap items-center gap-1.5 pointer-events-auto">
+      <button id="btn-boss-select" class="sanctum-btn sanctum-btn-gold" title="Select Boss Encounter or Return to Checkpoint">
+        <span>⚔️</span>
+        <span>Boss Select</span>
+      </button>
+
+      <button id="btn-armory" class="sanctum-btn" title="Equip Unlocked Boss Weapons, Spells & Armor Sets">
+        <span>🛡️</span>
+        <span>Relic Armory</span>
+        <span id="armory-unlock-badge" class="hidden w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+      </button>
+
+      <button id="btn-lockon" class="sanctum-btn" title="Toggle Target Lock-On [Tab]">
+        <span>🎯</span>
+        <span id="label-lockon">Lock-On: ON</span>
+      </button>
+
+      <button id="btn-restart" class="sanctum-btn" title="Instant Restart Current Boss Fight">
+        <span>🔄</span>
+        <span>Restart Fight</span>
+      </button>
+
+      <button id="btn-audio" class="sanctum-btn" title="Toggle Synthesized Boss Audio & SFX">
+        <span id="icon-audio">🔊</span>
+        <span class="hidden md:inline" id="label-audio">Audio</span>
+      </button>
+
+      <button id="btn-controls" class="sanctum-btn" title="View Combat Controls & Boss Weaknesses">
+        <span>📜</span>
+        <span class="hidden sm:inline">Guide</span>
+      </button>
+    </nav>
+  </header>
+
+
+
+  <!-- CENTER SCREEN CINEMATIC CALLOUTS & SOULS BANNERS -->
+  <div id="center-banner-container" class="fixed inset-0 pointer-events-none z-20 flex flex-col items-center justify-center">
+    <div id="souls-banner" class="hidden flex-col items-center justify-center px-12 py-5 bg-gradient-to-r from-transparent via-black/85 to-transparent border-y border-amber-500/40 w-full text-center">
+      <div id="souls-banner-title" class="font-gothic text-2xl sm:text-5xl font-extrabold tracking-widest text-amber-400 drop-shadow-[0_4px_24px_rgba(234,179,8,0.65)]">
+        BOSS VANQUISHED
+      </div>
+      <div id="souls-banner-sub" class="text-xs sm:text-sm uppercase tracking-[0.25em] text-stone-300 mt-1.5">
+        RELIC WEAPON &amp; SPELL UNLOCKED IN ARMORY
+      </div>
+    </div>
+  </div>
+
+  <!-- BOSS TELEGRAPH / WEAKNESS ALERT PILL (Above Boss Bar) -->
+  <div id="telegraph-alert" class="hidden fixed bottom-36 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+    <div class="px-4 py-1.5 rounded-full bg-red-950/90 border border-red-500/70 text-red-200 text-xs font-bold uppercase tracking-widest shadow-[0_0_20px_rgba(239,68,68,0.5)] flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-red-400 animate-ping"></span>
+      <span id="telegraph-text">PERILOUS ATTACK — PARRY OR DODGE!</span>
+    </div>
+  </div>
+
+  <!-- BOTTOM HUD: VIRTUAL ANALOG JOYSTICK (LEFT), CINEMATIC BOSS BAR (CENTER), COMBAT SLOTS (RIGHT) -->
+  <footer class="fixed bottom-3 left-3 right-3 z-20 flex flex-col lg:flex-row items-center lg:items-end justify-between gap-3 pointer-events-none select-none">
+
+    <!-- LEFT: VIRTUAL ANALOG MOVEMENT JOYSTICK -->
+    <div id="virtual-joystick-wrap" class="sanctum-panel rounded-2xl p-2.5 pointer-events-auto select-none flex flex-col items-center justify-center shadow-[0_4px_24px_rgba(0,0,0,0.65)] border border-amber-500/40 bg-stone-950/85 backdrop-blur-md">
+      <div id="joystick-base" class="relative w-[124px] h-[124px] rounded-full bg-stone-900/95 border-2 border-amber-500/50 shadow-inner flex items-center justify-center touch-none overflow-visible cursor-grab active:cursor-grabbing">
+        <!-- Concentric guide rings & decorative crosshairs -->
+        <div class="absolute inset-2 rounded-full border border-amber-500/20 pointer-events-none"></div>
+        <div class="absolute inset-7 rounded-full border border-dashed border-amber-400/25 pointer-events-none"></div>
+        <div class="absolute w-[2px] h-full bg-amber-500/15 pointer-events-none"></div>
+        <div class="absolute h-[2px] w-full bg-amber-500/15 pointer-events-none"></div>
+
+        <!-- Directional runic indicators (W, A, S, D) -->
+        <span class="absolute top-1 text-[9px] font-bold text-amber-300/80 select-none pointer-events-none tracking-tighter">▲ W</span>
+        <span class="absolute bottom-1 text-[9px] font-bold text-amber-300/80 select-none pointer-events-none tracking-tighter">▼ S</span>
+        <span class="absolute left-1 text-[9px] font-bold text-amber-300/80 select-none pointer-events-none tracking-tighter">◀ A</span>
+        <span class="absolute right-1 text-[9px] font-bold text-amber-300/80 select-none pointer-events-none tracking-tighter">D ▶</span>
+
+        <!-- Movable Joystick Knob -->
+        <div id="joystick-knob" class="relative z-10 w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 via-amber-600 to-amber-900 border-2 border-amber-200 shadow-[0_0_15px_rgba(245,158,11,0.7)] flex items-center justify-center transform translate-x-0 translate-y-0 transition-transform duration-75 ease-out pointer-events-none select-none">
+          <div class="w-6 h-6 rounded-full bg-stone-950/70 border border-amber-300/70 flex items-center justify-center">
+            <span class="text-xs text-amber-200">🕹️</span>
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5 mt-1.5 pointer-events-none">
+        <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+        <span class="text-[9px] font-mono-num uppercase tracking-wider text-amber-200/90 font-bold">DRAG JOYSTICK TO MOVE</span>
+      </div>
+    </div>
+
+    <!-- CENTER: CINEMATIC BOSS HEALTH & POSTURE BAR -->
+    <div id="boss-hud" class="sanctum-panel rounded-xl px-5 py-3 w-full max-w-2xl pointer-events-auto flex flex-col gap-1.5">
+      <div class="flex items-baseline justify-between gap-2">
+        <div class="flex items-center gap-2.5">
+          <span id="boss-phase-badge" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-red-500/20 text-red-300 border border-red-500/40">
+            PHASE I
+          </span>
+          <h2 id="boss-name" class="font-gothic text-sm sm:text-lg font-bold text-amber-100 tracking-wider">
+            VAELGOR, COLOSSAL ARMORED KNIGHT
+          </h2>
+        </div>
+        <span id="boss-hp-numbers" class="font-mono-num text-xs text-stone-400">4500 / 4500</span>
+      </div>
+
+      <!-- Boss Crimson Health Bar with Gold Delayed Trail -->
+      <div class="relative w-full h-4 bg-stone-950 rounded overflow-hidden border border-amber-500/35 shadow-inner">
+        <div id="boss-hp-trail" class="bar-trail absolute top-0 left-0 h-full bg-amber-300/85" style="width: 100%;"></div>
+        <div id="boss-hp-fill" class="bar-fill relative top-0 left-0 h-full bg-gradient-to-r from-red-900 via-red-600 to-amber-500" style="width: 100%;"></div>
+        <!-- 50% Phase II Threshold Marker -->
+        <div class="absolute top-0 bottom-0 left-1/2 w-[2px] bg-amber-200/50"></div>
+      </div>
+
+      <!-- Boss Posture / Stagger Bar -->
+      <div class="flex items-center gap-2.5 pt-0.5">
+        <span class="text-[10px] uppercase tracking-wider font-semibold text-amber-400/90 w-24">Posture Break</span>
+        <div class="relative flex-1 h-2 bg-stone-950 rounded-full overflow-hidden border border-white/10">
+          <div id="boss-posture-fill" class="bar-fill h-full bg-gradient-to-r from-amber-600 via-yellow-400 to-white shadow-[0_0_10px_#facc15]" style="width: 0%;"></div>
+        </div>
+        <span id="boss-weakness-hint" class="text-[10px] text-stone-400 hidden sm:inline">Weakness: Parry Swings &amp; Backstab</span>
+      </div>
+    </div>
+
+    <!-- RIGHT: EQUIPPED GEAR, HEALING FLASK & COMBAT ACTION SLOTS -->
+    <div class="sanctum-panel rounded-xl p-2.5 flex items-center gap-2 pointer-events-auto flex-wrap justify-center">
+      
+      <!-- Slot 1: Sanctum Healing Flask [R] -->
+      <button id="slot-heal" class="relative w-14 h-14 rounded-lg bg-emerald-950/50 border border-emerald-500/40 hover:border-emerald-400 flex flex-col items-center justify-center transition group active:scale-95" title="Drink Sanctum Flask [R]">
+        <span class="text-xl">🧪</span>
+        <span class="text-[10px] font-bold text-emerald-300">Heal</span>
+        <span id="flask-count" class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-emerald-600 text-white font-mono-num text-xs font-bold flex items-center justify-center border border-emerald-300">4</span>
+        <span class="absolute bottom-0.5 left-1 text-[9px] font-mono-num text-stone-400">R</span>
+      </button>
+
+      <!-- Slot 2: Magical Ability [E] -->
+      <button id="slot-spell" class="relative w-14 h-14 rounded-lg bg-purple-950/50 border border-purple-500/40 hover:border-purple-400 flex flex-col items-center justify-center overflow-hidden transition active:scale-95" title="Cast Magical Ability [E]">
+        <span id="spell-icon" class="text-xl">✨</span>
+        <span id="spell-name-short" class="text-[10px] font-bold text-purple-200 truncate max-w-[50px]">Lance</span>
+        <span class="absolute bottom-0.5 left-1 text-[9px] font-mono-num text-stone-400">E</span>
+        <!-- Cooldown Overlay -->
+        <div id="spell-cd-overlay" class="hidden absolute inset-0 bg-black/80 flex items-center justify-center font-mono-num text-xs font-bold text-purple-300">
+          2.5s
+        </div>
+      </button>
+
+      <!-- Slot 3: Active Weapon Attack [LMB / J] -->
+      <button id="slot-attack" class="relative w-14 h-14 rounded-lg bg-amber-950/40 border border-amber-500/40 hover:border-amber-400 flex flex-col items-center justify-center transition active:scale-95" title="Light Attack [Left Click / J] | Hold [Right Click / K] for Heavy">
+        <span id="weapon-icon" class="text-xl">🗡️</span>
+        <span id="weapon-name-short" class="text-[10px] font-bold text-amber-200 truncate max-w-[50px]">Claymore</span>
+        <span class="absolute bottom-0.5 left-1 text-[9px] font-mono-num text-stone-400">LMB</span>
+      </button>
+
+      <!-- Slot 4: Quick Heavy Strike [RMB / K] -->
+      <button id="slot-heavy" class="relative w-14 h-14 rounded-lg bg-amber-500/20 border border-amber-400/50 hover:bg-amber-500/30 flex flex-col items-center justify-center transition active:scale-95" title="Charged Heavy Strike [RMB / K]">
+        <span class="text-xl">💥</span>
+        <span class="text-[10px] font-bold text-amber-200">Heavy</span>
+        <span class="absolute bottom-0.5 left-1 text-[9px] font-mono-num text-stone-400">RMB</span>
+      </button>
+
+      <!-- Slot 5: Block / Timed Parry [Q / F] -->
+      <button id="slot-parry" class="relative w-14 h-14 rounded-lg bg-sky-950/40 border border-sky-500/40 hover:border-sky-400 flex flex-col items-center justify-center transition active:scale-95" title="Timed Parry / Block [Q or F]">
+        <span class="text-xl">🛡️</span>
+        <span class="text-[10px] font-bold text-sky-200">Parry</span>
+        <span class="absolute bottom-0.5 left-1 text-[9px] font-mono-num text-stone-400">Q</span>
+      </button>
+
+      <!-- Slot 6: Dodge Roll [Space / Shift] -->
+      <button id="slot-dodge" class="relative w-14 h-14 rounded-lg bg-stone-800/60 border border-stone-500/40 hover:border-stone-300 flex flex-col items-center justify-center transition active:scale-95" title="Dodge Roll / Perfect Dodge [Space]">
+        <span class="text-xl">💨</span>
+        <span class="text-[10px] font-bold text-stone-200">Dodge</span>
+        <span class="absolute bottom-0.5 left-1 text-[9px] font-mono-num text-stone-400">SPC</span>
+      </button>
+    </div>
+  </footer>
+
+  <!-- MODAL 1: BOSS SELECT & SANCTUM CHECKPOINT ALTAR -->
+  <div id="modal-boss-select" class="hidden fixed inset-0 z-30 flex items-center justify-center bg-black/75 backdrop-blur-md p-4">
+    <div class="sanctum-panel rounded-2xl max-w-3xl w-full p-6 border border-amber-500/40 flex flex-col gap-5 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <div>
+          <h2 class="font-gothic text-xl sm:text-2xl font-bold text-amber-300">SANCTUM ALTAR — CHOOSE YOUR TRIAL</h2>
+          <p class="text-xs text-stone-400 mt-0.5">Challenge any of the three Fallen Lords atop the Eclipsed Cathedral. Flasks &amp; HP restore on travel.</p>
+        </div>
+        <button id="close-boss-select" class="sanctum-btn">✕ Close</button>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Boss Card 1: Vaelgor -->
+        <div class="rounded-xl bg-white/[0.03] border border-white/15 p-4 flex flex-col justify-between gap-3 hover:border-amber-400/60 transition">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300">LORD I</span>
+              <span id="card-status-0" class="text-[11px] font-semibold text-stone-400">Unconquered</span>
+            </div>
+            <h3 class="font-gothic text-base font-bold text-white">Vaelgor, Colossal Knight</h3>
+            <p class="text-xs text-stone-400 mt-1">Towering dark-steel paladin wielding a colossal greatsword and molten earthbreaker slams.</p>
+            <div class="mt-3 p-2 rounded bg-black/40 border border-white/5 text-[11px] text-amber-200/90">
+              <strong>Weakness:</strong> Timed Parry [Q] on cleaves or strike his exposed back after overhead slams.
+            </div>
+          </div>
+          <button data-boss-idx="0" class="select-boss-btn sanctum-btn sanctum-btn-gold w-full py-2.5">Challenge Vaelgor</button>
+        </div>
+
+        <!-- Boss Card 2: Seraphina -->
+        <div class="rounded-xl bg-white/[0.03] border border-white/15 p-4 flex flex-col justify-between gap-3 hover:border-purple-400/60 transition">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300">LORD II</span>
+              <span id="card-status-1" class="text-[11px] font-semibold text-stone-400">Unconquered</span>
+            </div>
+            <h3 class="font-gothic text-base font-bold text-white">Seraphina, Celestial Mage</h3>
+            <p class="text-xs text-stone-400 mt-1">Corrupted astral arch-sorceress commanding starlight beams, gravity wells, and eclipse meteors.</p>
+            <div class="mt-3 p-2 rounded bg-black/40 border border-white/5 text-[11px] text-purple-200/90">
+              <strong>Weakness:</strong> Fire Spell [E] or Heavy Strike while she channels to shatter her Astral Barrier.
+            </div>
+          </div>
+          <button data-boss-idx="1" class="select-boss-btn sanctum-btn sanctum-btn-gold w-full py-2.5">Challenge Seraphina</button>
+        </div>
+
+        <!-- Boss Card 3: Malakor -->
+        <div class="rounded-xl bg-white/[0.03] border border-white/15 p-4 flex flex-col justify-between gap-3 hover:border-rose-400/60 transition">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300">LORD III</span>
+              <span id="card-status-2" class="text-[11px] font-semibold text-stone-400">Unconquered</span>
+            </div>
+            <h3 class="font-gothic text-base font-bold text-white">Malakor, Shadow Dragon</h3>
+            <p class="text-xs text-stone-400 mt-1">Winged abyssal wyrm unleashing shadow-flame breath sweeps, tail whips, and skyward dive-bombs.</p>
+            <div class="mt-3 p-2 rounded bg-black/40 border border-white/5 text-[11px] text-rose-200/90">
+              <strong>Weakness:</strong> Strike the glowing Corruption Core on its chest/head after breath or dive recovery.
+            </div>
+          </div>
+          <button data-boss-idx="2" class="select-boss-btn sanctum-btn sanctum-btn-gold w-full py-2.5">Challenge Malakor</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: SANCTUM RELIC ARMORY (PROGRESSION UNLOCKS: WEAPONS, SPELLS, ARMOR) -->
+  <div id="modal-armory" class="hidden fixed inset-0 z-30 flex items-center justify-center bg-black/75 backdrop-blur-md p-4">
+    <div class="sanctum-panel rounded-2xl max-w-4xl w-full p-6 border border-amber-500/40 flex flex-col gap-5 max-h-[90vh] overflow-y-auto">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
+        <div>
+          <h2 class="font-gothic text-xl sm:text-2xl font-bold text-amber-300">SANCTUM RELIC ARMORY</h2>
+          <p class="text-xs text-stone-400">Defeat bosses to forge their Soul Weapons, Arcane Spells, and Cosmetic Armor Sets.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btn-unlock-all" class="sanctum-btn text-amber-300 border-amber-400/40" title="Instantly unlock all boss relics to test every weapon, spell, and armor">
+            🔓 Unlock All Relics (Sandbox)
+          </button>
+          <button id="close-armory" class="sanctum-btn">✕ Close</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <!-- Column 1: Weapons -->
+        <div class="flex flex-col gap-2.5">
+          <h3 class="font-gothic text-sm font-bold text-amber-200 uppercase tracking-wider border-b border-white/10 pb-1">🗡️ Weapons</h3>
+          <div id="armory-weapons-list" class="flex flex-col gap-2"></div>
+        </div>
+
+        <!-- Column 2: Magical Abilities -->
+        <div class="flex flex-col gap-2.5">
+          <h3 class="font-gothic text-sm font-bold text-purple-200 uppercase tracking-wider border-b border-white/10 pb-1">✨ Magical Abilities</h3>
+          <div id="armory-spells-list" class="flex flex-col gap-2"></div>
+        </div>
+
+        <!-- Column 3: Cosmetic Armor Sets -->
+        <div class="flex flex-col gap-2.5">
+          <h3 class="font-gothic text-sm font-bold text-sky-200 uppercase tracking-wider border-b border-white/10 pb-1">🛡️ Cosmetic Armor</h3>
+          <div id="armory-armors-list" class="flex flex-col gap-2"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 3: COMBAT GUIDE & CONTROLS -->
+  <div id="modal-controls" class="hidden fixed inset-0 z-30 flex items-center justify-center bg-black/75 backdrop-blur-md p-4">
+    <div class="sanctum-panel rounded-2xl max-w-2xl w-full p-6 border border-amber-500/40 flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <h2 class="font-gothic text-xl font-bold text-amber-300">COMBAT CODEX &amp; CONTROLS</h2>
+        <button id="close-controls" class="sanctum-btn">✕ Close</button>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <div class="p-3 rounded-lg bg-white/5 border border-white/10 space-y-1.5">
+          <div class="font-bold text-amber-300 uppercase">Movement &amp; Camera</div>
+          <div><strong class="text-white">Virtual Joystick (Bottom-Left):</strong> Drag 360° Analog Thumbstick with Mouse or Touch to move warrior!</div>
+          <div><strong class="text-white">W, A, S, D / Arrows:</strong> Keyboard movement (also live-deflects on-screen joystick)</div>
+          <div><strong class="text-white">Mouse Drag:</strong> Orbit Camera (when unlocked)</div>
+          <div><strong class="text-white">Tab / Middle Click:</strong> Toggle Boss Lock-On</div>
+          <div><strong class="text-white">Space / Shift:</strong> Dodge Roll (i-frames in joystick/facing direction)</div>
+          <div><strong class="text-white">Mouse Wheel:</strong> Zoom Perspective &amp; Drive Scroll Bar</div>
+          <div><strong class="text-white">Right Scroll Bar:</strong> Drag rail or click nodes to navigate trials</div>
+        </div>
+        <div class="p-3 rounded-lg bg-white/5 border border-white/10 space-y-1.5">
+          <div class="font-bold text-amber-300 uppercase">Offense &amp; Defense</div>
+          <div><strong class="text-white">Left Click / J:</strong> 3-Hit Light Sword Combo</div>
+          <div><strong class="text-white">Right Click / K (Hold):</strong> Charged Heavy Strike</div>
+          <div><strong class="text-white">Q / F:</strong> Block / Timed Perfect Parry</div>
+          <div><strong class="text-white">E / 1:</strong> Cast Equipped Boss Spell</div>
+          <div><strong class="text-white">R / 2:</strong> Drink Sanctum Healing Flask</div>
+        </div>
+      </div>
+
+      <div class="p-3.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-stone-200 space-y-1.5">
+        <div class="font-bold text-amber-300 uppercase">Mastery Mechanics</div>
+        <p>• <strong>Perfect Dodge:</strong> Dodging right as a boss attack lands triggers brief slow-motion, restores stamina, and grants a <strong>Counter Surge (+35% damage)</strong> on your next hit.</p>
+        <p>• <strong>Perfect Parry:</strong> Pressing <strong>[Q]</strong> just before impact deflects the blow with zero damage and inflicts massive <strong>Posture Damage</strong>.</p>
+        <p>• <strong>Posture Break &amp; Stagger:</strong> Filling the boss's golden Posture Bar collapses them for 4.5 seconds, allowing devastating critical strikes.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /********************************************************************
+     * 1. PROCEDURAL WEB AUDIO SYNTHESIZER (Combat SFX & Boss Chimes)
+     ********************************************************************/
+    class SanctumAudio {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      playSlash(pitch = 1.0) {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(340 * pitch, now);
+        osc.frequency.exponentialRampToValueAtTime(85 * pitch, now + 0.16);
+        gain.gain.setValueAtTime(0.11, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.19);
+      }
+
+      playHitImpact(heavy = false) {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(heavy ? 160 : 210, now);
+        osc.frequency.exponentialRampToValueAtTime(32, now + (heavy ? 0.38 : 0.2));
+        gain.gain.setValueAtTime(heavy ? 0.28 : 0.16, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + (heavy ? 0.4 : 0.22));
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + (heavy ? 0.42 : 0.24));
+      }
+
+      playParryClang() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        // High metallic resonant chord
+        [1180, 1760, 2480, 3120].forEach((freq, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now);
+          osc.frequency.exponentialRampToValueAtTime(freq * 0.94, now + 0.55);
+          gain.gain.setValueAtTime(0.14 / (i + 1), now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.58);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.6);
+        });
+      }
+
+      playPerfectDodge() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(640, now);
+        osc.frequency.exponentialRampToValueAtTime(220, now + 0.32);
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.36);
+      }
+
+      playSpellCast() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        [440, 660, 880].forEach((f, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(f, now + idx * 0.04);
+          osc.frequency.exponentialRampToValueAtTime(f * 1.4, now + 0.32);
+          gain.gain.setValueAtTime(0.08, now + idx * 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + idx * 0.04);
+          osc.stop(now + 0.36);
+        });
+      }
+
+      playHeal() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        [523.25, 659.25, 783.99, 1046.5].forEach((f, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(f, now + idx * 0.06);
+          gain.gain.setValueAtTime(0.09, now + idx * 0.06);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + idx * 0.06);
+          osc.stop(now + 0.68);
+        });
+      }
+
+      playBossRoar() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        [95, 142, 68].forEach((f) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(f, now);
+          osc.frequency.linearRampToValueAtTime(f * 0.65, now + 1.1);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 1.25);
+        });
+      }
+    }
+
+    const sfx = new SanctumAudio();
+
+    /********************************************************************
+     * 2. PROGRESSION DATA: WEAPONS, SPELLS, ARMORS & BOSS DEFINITIONS
+     ********************************************************************/
+    const WEAPONS = [
+      {
+        id: 'claymore',
+        name: 'Sanctum Claymore',
+        short: 'Claymore',
+        icon: '🗡️',
+        dmg: 95,
+        poiseDmg: 18,
+        speed: 1.0,
+        reach: 3.1,
+        color: 0x93c5fd,
+        unlocked: true,
+        desc: 'Balanced knightly rune-blade forged in the high cathedral.'
+      },
+      {
+        id: 'vaelgor_greatsword',
+        name: "Vaelgor's Ember Greatsword",
+        short: 'Colossal',
+        icon: '🔥',
+        dmg: 145,
+        poiseDmg: 32,
+        speed: 0.82,
+        reach: 3.9,
+        color: 0xf97316,
+        unlocked: false,
+        bossReq: 0,
+        desc: 'Colossal magma-veined slab sword. Massive reach and posture damage.'
+      },
+      {
+        id: 'astral_blade',
+        name: "Seraphina's Starlight Glaive",
+        short: 'Starlight',
+        icon: '🌙',
+        dmg: 118,
+        poiseDmg: 22,
+        speed: 1.22,
+        reach: 3.5,
+        color: 0xc084fc,
+        unlocked: false,
+        bossReq: 1,
+        desc: 'Crystalline astral poleblade with swift luminous slashes.'
+      },
+      {
+        id: 'dragon_twinblade',
+        name: "Malakor's Abyssal Fang",
+        short: 'Abyssal',
+        icon: '🐉',
+        dmg: 165,
+        poiseDmg: 30,
+        speed: 1.1,
+        reach: 3.7,
+        color: 0xf43f5e,
+        unlocked: false,
+        bossReq: 2,
+        desc: 'Jagged dragonbone dread-blade pulsing with shadowflame.'
+      }
+    ];
+
+    const SPELLS = [
+      {
+        id: 'arcane_lance',
+        name: 'Arcane Soul Lance',
+        short: 'Lance',
+        icon: '✨',
+        dmg: 140,
+        poiseDmg: 28,
+        cd: 3.5,
+        stamCost: 22,
+        color: 0x38bdf8,
+        unlocked: true,
+        desc: 'Fast piercing spear of sanctum light. Interrupts boss channeling.'
+      },
+      {
+        id: 'molten_wave',
+        name: 'Molten Earthbreaker',
+        short: 'Magma',
+        icon: '🌋',
+        dmg: 230,
+        poiseDmg: 45,
+        cd: 5.5,
+        stamCost: 30,
+        color: 0xf97316,
+        unlocked: false,
+        bossReq: 0,
+        desc: 'Erupts a line of volcanic shockwaves that shatter enemy posture.'
+      },
+      {
+        id: 'starlight_barrage',
+        name: 'Celestial Homing Orbs',
+        short: 'Stars',
+        icon: '☄️',
+        dmg: 210,
+        poiseDmg: 34,
+        cd: 4.8,
+        stamCost: 26,
+        color: 0xc084fc,
+        unlocked: false,
+        bossReq: 1,
+        desc: 'Conjures 5 homing starlight seekers that relentlessly track the boss.'
+      },
+      {
+        id: 'shadowflame_surge',
+        name: 'Abyssal Breath Surge',
+        short: 'Abyss',
+        icon: '🔥',
+        dmg: 285,
+        poiseDmg: 50,
+        cd: 6.2,
+        stamCost: 34,
+        color: 0xe11d48,
+        unlocked: false,
+        bossReq: 2,
+        desc: 'Unleashes Malakor’s devastating shadow-flame tempest cone.'
+      }
+    ];
+
+    const ARMORS = [
+      {
+        id: 'sanctum_plate',
+        name: 'Silver Sanctum Plate',
+        icon: '🛡️',
+        primaryColor: 0xd1d5db,
+        trimColor: 0xeab308,
+        capeColor: 0x1e3a8a,
+        unlocked: true,
+        desc: 'Consecrated silver steel worn by the cathedral’s sworn sentinels.'
+      },
+      {
+        id: 'dreadplate',
+        name: 'Vaelgor Dreadplate',
+        icon: '⚔️',
+        primaryColor: 0x1f2430,
+        trimColor: 0xf97316,
+        capeColor: 0x7f1d1d,
+        unlocked: false,
+        bossReq: 0,
+        desc: 'Blackened colossus plate glowing with living furnace embers.'
+      },
+      {
+        id: 'astral_vestments',
+        name: 'Celestial Arch-Vestments',
+        icon: '👑',
+        primaryColor: 0x312e81,
+        trimColor: 0xc084fc,
+        capeColor: 0x581c87,
+        unlocked: false,
+        bossReq: 1,
+        desc: 'Star-woven battle armor blessed under the Void Eclipse.'
+      },
+      {
+        id: 'dragon_mail',
+        name: 'Abyssal Dragonscale',
+        icon: '🐲',
+        primaryColor: 0x18181b,
+        trimColor: 0xf43f5e,
+        capeColor: 0x4c0519,
+        unlocked: false,
+        bossReq: 2,
+        desc: 'Impervious obsidian scales harvested from Malakor the Shadow Dragon.'
+      }
+    ];
+
+    const BOSS_CONFIGS = [
+      {
+        index: 0,
+        name: 'VAELGOR, COLOSSAL ARMORED KNIGHT',
+        phase2Title: 'VAELGOR, LORD OF THE EMBER FURNACE',
+        maxHp: 4200,
+        maxPosture: 100,
+        weaknessText: 'Weakness: Timed Parry [Q] on swings & Backstab after Overhead Slams',
+        color: 0xf97316
+      },
+      {
+        index: 1,
+        name: 'SERAPHINA, CORRUPTED CELESTIAL MAGE',
+        phase2Title: 'SERAPHINA, ARCHON OF THE VOID ECLIPSE',
+        maxHp: 3800,
+        maxPosture: 100,
+        weaknessText: 'Weakness: Hit with Spell [E] or Heavy Strike during Chanted Casts',
+        color: 0xa855f7
+      },
+      {
+        index: 2,
+        name: 'MALAKOR, THE SHADOW DRAGON',
+        phase2Title: 'MALAKOR, SOVEREIGN OF ABYSSAL TEMPEST',
+        maxHp: 5200,
+        maxPosture: 120,
+        weaknessText: 'Weakness: Strike the Glowing Chest/Head Core after Breath or Dive-Bomb',
+        color: 0xe11d48
+      }
+    ];
+
+    const defeatedBosses = [false, false, false];
+    let currentWeapon = WEAPONS[0];
+    let currentSpell = SPELLS[0];
+    let currentArmor = ARMORS[0];
+
+    /********************************************************************
+     * 3. THREE.JS SCENE & RUINED SUSPENDED CATHEDRAL ARENA
+     ********************************************************************/
+    const container = document.getElementById('game-canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x06060c);
+    scene.fog = new THREE.FogExp2(0x080711, 0.0095);
+
+    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 400);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+    container.appendChild(renderer.domElement);
+
+    const ARENA_RADIUS = 29;
+
+    // --- LIGHTING ---
+    const ambientLight = new THREE.AmbientLight(0x8b95c9, 0.55);
+    scene.add(ambientLight);
+
+    // Eclipsed Moon Directional Light
+    const moonLight = new THREE.DirectionalLight(0xffedd5, 1.35);
+    moonLight.position.set(0, 48, -62);
+    moonLight.castShadow = true;
+    moonLight.shadow.mapSize.width = 2048;
+    moonLight.shadow.mapSize.height = 2048;
+    moonLight.shadow.camera.near = 10;
+    moonLight.shadow.camera.far = 140;
+    const d = 34;
+    moonLight.shadow.camera.left = -d;
+    moonLight.shadow.camera.right = d;
+    moonLight.shadow.camera.top = d;
+    moonLight.shadow.camera.bottom = -d;
+    moonLight.shadow.bias = -0.0005;
+    scene.add(moonLight);
+
+    // Stained-Glass Colored Rim Lights (Sapphire & Crimson-Violet)
+    const stainedLightLeft = new THREE.PointLight(0x3b82f6, 1.6, 55);
+    stainedLightLeft.position.set(-28, 14, -10);
+    scene.add(stainedLightLeft);
+
+    const stainedLightRight = new THREE.PointLight(0xc084fc, 1.6, 55);
+    stainedLightRight.position.set(28, 14, -10);
+    scene.add(stainedLightRight);
+
+    // Procedural Stone Floor Texture
+    function createArenaFloorTexture() {
+      const c = document.createElement('canvas');
+      c.width = 512;
+      c.height = 512;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#14151f';
+      ctx.fillRect(0, 0, 512, 512);
+
+      // Concentric Gothic Stone Rings & Radial Flagstones
+      ctx.strokeStyle = 'rgba(234, 179, 8, 0.16)';
+      ctx.lineWidth = 3;
+      [70, 140, 210, 245].forEach(r => {
+        ctx.beginPath();
+        ctx.arc(256, 256, r, 0, Math.PI * 2);
+        ctx.stroke();
+      });
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 16; i++) {
+        const a = (i / 16) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(256, 256);
+        ctx.lineTo(256 + Math.cos(a) * 256, 256 + Math.sin(a) * 256);
+        ctx.stroke();
+      }
+      return new THREE.CanvasTexture(c);
+    }
+
+    const arenaGroup = new THREE.Group();
+    scene.add(arenaGroup);
+
+    const stoneMat = new THREE.MeshStandardMaterial({
+      color: 0x1e202d,
+      roughness: 0.78,
+      metalness: 0.15
+    });
+    const darkStoneMat = new THREE.MeshStandardMaterial({
+      color: 0x12131c,
+      roughness: 0.65,
+      metalness: 0.25
+    });
+    const goldMat = new THREE.MeshStandardMaterial({
+      color: 0xeab308,
+      roughness: 0.28,
+      metalness: 0.85
+    });
+
+    // Main Suspended Cathedral Floor
+    const floorGeo = new THREE.CylinderGeometry(ARENA_RADIUS, ARENA_RADIUS * 0.88, 2.5, 48);
+    const floorMat = new THREE.MeshStandardMaterial({
+      map: createArenaFloorTexture(),
+      roughness: 0.65,
+      metalness: 0.2
+    });
+    const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+    floorMesh.position.y = -1.25;
+    floorMesh.receiveShadow = true;
+    arenaGroup.add(floorMesh);
+
+    // Outer Ornate Gold & Stone Rim
+    const rimRing = new THREE.Mesh(
+      new THREE.TorusGeometry(ARENA_RADIUS + 0.2, 0.45, 12, 64),
+      darkStoneMat
+    );
+    rimRing.rotation.x = Math.PI / 2;
+    rimRing.position.y = 0.1;
+    arenaGroup.add(rimRing);
+
+    // Central Sanctum Checkpoint Altar (Visible & glowing, serves as landmark)
+    const altarGroup = new THREE.Group();
+    const altarBase = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 2.1, 0.45, 8), darkStoneMat);
+    altarBase.position.y = 0.22;
+    altarGroup.add(altarBase);
+
+    const coiledSword = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.9, 0.28), goldMat);
+    coiledSword.position.y = 1.1;
+    coiledSword.rotation.z = 0.12;
+    altarGroup.add(coiledSword);
+
+    const altarFlameLight = new THREE.PointLight(0xf59e0b, 1.5, 12);
+    altarFlameLight.position.set(0, 1.4, 0);
+    altarGroup.add(altarFlameLight);
+    altarGroup.position.set(0, 0, 22); // At South entrance of cathedral
+    arenaGroup.add(altarGroup);
+
+    // Build Ruined Gothic Pillars, Broken Stained Glass Windows & Ancient Hooded Statues around the perimeter
+    const floatingPlatforms = [];
+    const cloudPuffs = [];
+
+    function createAncientStatue() {
+      const g = new THREE.Group();
+      const pedestal = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.4, 2.2), darkStoneMat);
+      pedestal.position.y = 1.2;
+      g.add(pedestal);
+
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.95, 3.8, 8), stoneMat);
+      body.position.y = 4.3;
+      body.castShadow = true;
+      g.add(body);
+
+      const hood = new THREE.Mesh(new THREE.ConeGeometry(0.68, 1.3, 8), stoneMat);
+      hood.position.y = 6.6;
+      g.add(hood);
+
+      // Guardian Greatsword held vertically in front
+      const statueSword = new THREE.Mesh(new THREE.BoxGeometry(0.18, 3.6, 0.35), goldMat);
+      statueSword.position.set(0, 3.8, 0.85);
+      g.add(statueSword);
+
+      // Glowing Soul Brazier atop pedestal
+      const brazier = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.32, 0),
+        new THREE.MeshBasicMaterial({ color: 0xf59e0b })
+      );
+      brazier.position.set(0, 5.7, 0.95);
+      g.add(brazier);
+
+      return g;
+    }
+
+    function createBrokenStainedWindow() {
+      const g = new THREE.Group();
+      // Left & Right Lancet Mullions
+      [-2.1, 2.1].forEach(x => {
+        const col = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.65, 18, 10), stoneMat);
+        col.position.set(x, 9, 0);
+        col.castShadow = true;
+        g.add(col);
+      });
+
+      // Pointed Arch Top
+      const archL = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 3.4, 8), stoneMat);
+      archL.position.set(-1.1, 18.8, 0);
+      archL.rotation.z = -0.65;
+      g.add(archL);
+
+      const archR = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 3.4, 8), stoneMat);
+      archR.position.set(1.1, 18.8, 0);
+      archR.rotation.z = 0.65;
+      g.add(archR);
+
+      // Shattered Stained-Glass Shards still clinging to the frame
+      const shardColors = [0x3b82f6, 0xa855f7, 0xf59e0b, 0xec4899];
+      for (let i = 0; i < 9; i++) {
+        const shard = new THREE.Mesh(
+          new THREE.CircleGeometry(0.65 + Math.random() * 0.6, 5),
+          new THREE.MeshBasicMaterial({
+            color: shardColors[i % shardColors.length],
+            transparent: true,
+            opacity: 0.48,
+            side: THREE.DoubleSide
+          })
+        );
+        shard.position.set((Math.random() - 0.5) * 2.8, 4 + i * 1.6, 0);
+        shard.rotation.z = Math.random() * Math.PI;
+        g.add(shard);
+      }
+      return g;
+    }
+
+    const totalPerimeterSlots = 16;
+    for (let i = 0; i < totalPerimeterSlots; i++) {
+      const angle = (i / totalPerimeterSlots) * Math.PI * 2;
+      const px = Math.cos(angle) * (ARENA_RADIUS - 0.5);
+      const pz = Math.sin(angle) * (ARENA_RADIUS - 0.5);
+
+      if (i % 2 === 0) {
+        // Broken Gothic Window or Shattered Pillar
+        if (i % 4 === 0 && i !== 4) {
+          const win = createBrokenStainedWindow();
+          win.position.set(px, 0, pz);
+          win.rotation.y = -angle + Math.PI / 2;
+          arenaGroup.add(win);
+        } else {
+          const h = 6 + (i % 3) * 4.5;
+          const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 1.05, h, 10), stoneMat);
+          pillar.position.set(px, h / 2, pz);
+          pillar.castShadow = true;
+          pillar.receiveShadow = true;
+          arenaGroup.add(pillar);
+        }
+      } else {
+        // Ancient Hooded Knight Statue facing center
+        const statue = createAncientStatue();
+        statue.position.set(px, 0, pz);
+        statue.rotation.y = -angle - Math.PI / 2;
+        arenaGroup.add(statue);
+      }
+    }
+
+    // Floating Stone Platforms suspended outside the ruined cathedral
+    for (let i = 0; i < 18; i++) {
+      const angle = (i / 18) * Math.PI * 2 + 0.2;
+      const dist = ARENA_RADIUS + 10 + Math.random() * 26;
+      const platY = -4 + (Math.random() - 0.5) * 16;
+      const platGroup = new THREE.Group();
+
+      const topSlab = new THREE.Mesh(
+        new THREE.CylinderGeometry(2.5 + Math.random() * 2.8, 1.2, 1.8, 7),
+        stoneMat
+      );
+      platGroup.add(topSlab);
+
+      // Broken ruin column on some floating platforms
+      if (i % 3 === 0) {
+        const ruinCol = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.5, 3.8, 8), darkStoneMat);
+        ruinCol.position.set(0.6, 2.2, 0);
+        platGroup.add(ruinCol);
+      }
+
+      platGroup.position.set(Math.cos(angle) * dist, platY, Math.sin(angle) * dist);
+      scene.add(platGroup);
+      floatingPlatforms.push({
+        mesh: platGroup,
+        baseY: platY,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.6 + Math.random() * 0.6
+      });
+    }
+
+    // Animated Sea of Swirling Clouds below the suspended cathedral
+    const cloudMat = new THREE.MeshStandardMaterial({
+      color: 0x16192b,
+      roughness: 1.0,
+      metalness: 0.0,
+      transparent: true,
+      opacity: 0.72
+    });
+
+    for (let i = 0; i < 65; i++) {
+      const r = 12 + Math.random() * 95;
+      const a = Math.random() * Math.PI * 2;
+      const puff = new THREE.Mesh(
+        new THREE.DodecahedronGeometry(6 + Math.random() * 10, 1),
+        cloudMat
+      );
+      puff.scale.set(1.8, 0.32, 1.4);
+      puff.position.set(Math.cos(a) * r, -11 - Math.random() * 12, Math.sin(a) * r);
+      scene.add(puff);
+      cloudPuffs.push({
+        mesh: puff,
+        angle: a,
+        radius: r,
+        speed: (0.015 + Math.random() * 0.025) * (i % 2 === 0 ? 1 : -1)
+      });
+    }
+
+    // MASSIVE ECLIPSED MOON IN THE NIGHT SKY
+    const eclipseGroup = new THREE.Group();
+    eclipseGroup.position.set(0, 52, -135);
+
+    // Black Lunar Disc
+    const darkMoon = new THREE.Mesh(
+      new THREE.SphereGeometry(22, 32, 32),
+      new THREE.MeshBasicMaterial({ color: 0x040408 })
+    );
+    eclipseGroup.add(darkMoon);
+
+    // Blazing Solar Corona Ring
+    const coronaRing = new THREE.Mesh(
+      new THREE.RingGeometry(21.8, 25.5, 64),
+      new THREE.MeshBasicMaterial({
+        color: 0xf59e0b,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.95
+      })
+    );
+    eclipseGroup.add(coronaRing);
+
+    // Outer Ethereal Eclipse Glow Halo
+    const outerHalo = new THREE.Mesh(
+      new THREE.RingGeometry(24.5, 38, 64),
+      new THREE.MeshBasicMaterial({
+        color: 0x9333ea,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.35,
+        blending: THREE.AdditiveBlending
+      })
+    );
+    eclipseGroup.add(outerHalo);
+    scene.add(eclipseGroup);
+
+    // Drifting Ash & Eclipse Ember Particles
+    const emberCount = 220;
+    const emberGeo = new THREE.BufferGeometry();
+    const emberPos = new Float32Array(emberCount * 3);
+    for (let i = 0; i < emberCount; i++) {
+      emberPos[i * 3] = (Math.random() - 0.5) * 68;
+      emberPos[i * 3 + 1] = Math.random() * 24;
+      emberPos[i * 3 + 2] = (Math.random() - 0.5) * 68;
+    }
+    emberGeo.setAttribute('position', new THREE.BufferAttribute(emberPos, 3));
+    const emberPoints = new THREE.Points(
+      emberGeo,
+      new THREE.PointsMaterial({
+        color: 0xfbbf24,
+        size: 0.16,
+        transparent: true,
+        opacity: 0.7,
+        blending: THREE.AdditiveBlending
+      })
+    );
+    scene.add(emberPoints);
+
+    /********************************************************************
+     * 4. ARTICULATED 3D PLAYER WARRIOR MODEL & COMBAT CONTROLLER
+     ********************************************************************/
+    const player = {
+      group: new THREE.Group(),
+      pos: new THREE.Vector3(0, 0, 16),
+      vel: new THREE.Vector3(),
+      yaw: Math.PI, // Facing North (-Z) toward boss
+      hp: 1000,
+      maxHp: 1000,
+      stamina: 100,
+      maxStamina: 100,
+      flasks: 4,
+      state: 'idle', // 'idle' | 'move' | 'attack' | 'charge' | 'heavy' | 'dodge' | 'block' | 'parry' | 'stagger' | 'dead'
+      stateTimer: 0,
+      comboStep: 0,
+      comboWindowTimer: 0,
+      chargeTime: 0,
+      invulnTimer: 0,
+      parryWindowTimer: 0,
+      spellCooldown: 0,
+      counterSurgeBuff: false,
+      hitCalculatedThisSwing: false,
+      parts: {}
+    };
+    scene.add(player.group);
+
+    function buildPlayerMesh() {
+      while (player.group.children.length > 0) {
+        player.group.remove(player.group.children[0]);
+      }
+
+      // Harmonious, smoothly blended PBR materials
+      const armorMat = new THREE.MeshStandardMaterial({
+        color: currentArmor.primaryColor,
+        roughness: 0.32,
+        metalness: 0.85
+      });
+      const trimMat = new THREE.MeshStandardMaterial({
+        color: currentArmor.trimColor,
+        roughness: 0.22,
+        metalness: 0.92
+      });
+      const darkMailMat = new THREE.MeshStandardMaterial({
+        color: 0x161822,
+        roughness: 0.65,
+        metalness: 0.45
+      });
+      const capeMat = new THREE.MeshStandardMaterial({
+        color: currentArmor.capeColor,
+        roughness: 0.82,
+        side: THREE.DoubleSide
+      });
+      const weaponBladeMat = new THREE.MeshStandardMaterial({
+        color: currentWeapon.color,
+        emissive: currentWeapon.color,
+        emissiveIntensity: 0.65,
+        roughness: 0.18,
+        metalness: 0.92
+      });
+      const visorGlowMat = new THREE.MeshBasicMaterial({
+        color: currentWeapon.color
+      });
+      const sanctumGemMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        emissive: currentWeapon.color,
+        emissiveIntensity: 0.85,
+        roughness: 0.12,
+        metalness: 0.9
+      });
+
+      const rig = new THREE.Group();
+      player.group.add(rig);
+
+      // --- 1. CONTINUOUS SCULPTED TORSO & CUIRASS ---
+      const torso = new THREE.Group();
+      torso.position.y = 1.45;
+      rig.add(torso);
+
+      // Smooth lathed breastplate silhouette: collar -> pectorals -> tapered waist -> hip flare
+      const torsoPts = [
+        new THREE.Vector2(0.20, 0.46),
+        new THREE.Vector2(0.38, 0.36),
+        new THREE.Vector2(0.44, 0.20),
+        new THREE.Vector2(0.42, 0.05),
+        new THREE.Vector2(0.34, -0.15),
+        new THREE.Vector2(0.32, -0.32),
+        new THREE.Vector2(0.38, -0.48)
+      ];
+      const torsoGeo = new THREE.LatheGeometry(torsoPts, 24);
+      torsoGeo.computeVertexNormals();
+      const chestPlate = new THREE.Mesh(torsoGeo, armorMat);
+      chestPlate.scale.set(1.05, 1.0, 0.88);
+      chestPlate.castShadow = true;
+      torso.add(chestPlate);
+
+      // Neck Gorget / Cowl (seamlessly bridges head to chest)
+      const gorget = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.065, 8, 24), trimMat);
+      gorget.rotation.x = Math.PI / 2;
+      gorget.position.y = 0.44;
+      torso.add(gorget);
+
+      // Subtle Integrated Chest Emblem & Glowing Sanctum Core
+      const emblemTrim = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.03, 8, 20), trimMat);
+      emblemTrim.position.set(0, 0.15, 0.28);
+      torso.add(emblemTrim);
+
+      const sanctumCore = new THREE.Mesh(new THREE.OctahedronGeometry(0.09, 0), sanctumGemMat);
+      sanctumCore.position.set(0, 0.15, 0.30);
+      torso.add(sanctumCore);
+
+      // Armored Tassets (Curved, blended hip faulds)
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 0.9 - Math.PI * 0.45;
+        const tasset = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 0.35, 10, 1, false, 0, Math.PI), armorMat);
+        tasset.position.set(Math.sin(a) * 0.35, -0.55, Math.cos(a) * 0.30);
+        tasset.rotation.y = a + Math.PI;
+        tasset.rotation.x = 0.15;
+        const tTrim = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.05, 0.04), trimMat);
+        tTrim.position.y = -0.16;
+        tasset.add(tTrim);
+        torso.add(tasset);
+      }
+
+      // Dark chainmail under-layer
+      const mailSkirt = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.38, 0.32, 16), darkMailMat);
+      mailSkirt.position.y = -0.56;
+      torso.add(mailSkirt);
+
+      // --- 2. SMOOTH SCULPTED HELMET & VISOR ---
+      const headGroup = new THREE.Group();
+      headGroup.position.y = 2.22;
+
+      // Smooth bascinet cranium lathe
+      const helmPts = [
+        new THREE.Vector2(0.01, 0.35),
+        new THREE.Vector2(0.16, 0.33),
+        new THREE.Vector2(0.26, 0.22),
+        new THREE.Vector2(0.28, 0.06),
+        new THREE.Vector2(0.27, -0.10),
+        new THREE.Vector2(0.23, -0.22),
+        new THREE.Vector2(0.19, -0.30)
+      ];
+      const helmGeo = new THREE.LatheGeometry(helmPts, 20);
+      helmGeo.computeVertexNormals();
+      const helm = new THREE.Mesh(helmGeo, armorMat);
+      helm.scale.set(1.0, 1.0, 1.05);
+      helm.castShadow = true;
+      headGroup.add(helm);
+
+      // Smooth Forehead Brow Fillet
+      const browFillet = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.035, 8, 24, Math.PI), trimMat);
+      browFillet.rotation.x = Math.PI / 2 + 0.18;
+      browFillet.position.set(0, 0.06, 0.08);
+      headGroup.add(browFillet);
+
+      // Integrated Visor Channel with Glowing Horizontal Slit
+      const visorBar = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.045, 0.12), visorGlowMat);
+      visorBar.position.set(0, 0.02, 0.22);
+      headGroup.add(visorBar);
+
+      // Smooth Cheek/Bevor guards
+      [-0.18, 0.18].forEach(x => {
+        const cheek = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.22, 10), armorMat);
+        cheek.position.set(x, -0.14, 0.14);
+        cheek.rotation.z = (x > 0 ? -1 : 1) * 0.25;
+        headGroup.add(cheek);
+      });
+
+      // Central Helmet Comb
+      const comb = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.32, 0.38), trimMat);
+      comb.position.set(0, 0.22, -0.05);
+      headGroup.add(comb);
+
+      // Flowing Plume curving gracefully
+      const plume = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.68, 10), capeMat);
+      plume.position.set(0, 0.36, -0.20);
+      plume.rotation.x = -0.72;
+      headGroup.add(plume);
+
+      rig.add(headGroup);
+
+      // --- 3. DYNAMIC FLOWING CAPE ---
+      const cape = new THREE.Group();
+      cape.position.set(0, 1.48, -0.26);
+
+      const capeSeg1 = new THREE.Mesh(new THREE.PlaneGeometry(0.82, 0.62, 4, 3), capeMat);
+      capeSeg1.position.y = -0.30;
+      capeSeg1.rotation.x = 0.14;
+      cape.add(capeSeg1);
+
+      const capeSeg2 = new THREE.Mesh(new THREE.PlaneGeometry(0.90, 0.68, 4, 3), capeMat);
+      capeSeg2.position.set(0, -0.58, 0.08);
+      capeSeg2.rotation.x = 0.18;
+      capeSeg1.add(capeSeg2);
+
+      const capeTrim = new THREE.Mesh(new THREE.PlaneGeometry(0.90, 0.06), trimMat);
+      capeTrim.position.set(0, -0.32, 0.01);
+      capeSeg2.add(capeTrim);
+      rig.add(cape);
+
+      // --- 4. ORGANICALLY BLENDED LEGS WITH BALL JOINTS ---
+      function buildBlendedLeg(isRight) {
+        const legGroup = new THREE.Group();
+        const sideMult = isRight ? 1 : -1;
+        legGroup.position.set(sideMult * 0.20, 0.68, 0);
+
+        // Hip Ball Joint (seamless socket inside pelvis)
+        const hipBall = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 12), darkMailMat);
+        legGroup.add(hipBall);
+
+        // Tapered Thigh Cuisse
+        const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.13, 0.52, 12), armorMat);
+        thigh.position.y = -0.18;
+        thigh.castShadow = true;
+        legGroup.add(thigh);
+
+        // Smooth Knee Poleyn with Sphere Joint (Eliminates gaps when running)
+        const kneeBall = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 12), armorMat);
+        kneeBall.position.set(0, -0.44, 0.03);
+        const kneeCap = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8, 0, Math.PI * 2, 0, Math.PI * 0.6), trimMat);
+        kneeCap.rotation.x = Math.PI / 2;
+        kneeCap.position.set(0, 0, 0.08);
+        kneeBall.add(kneeCap);
+        legGroup.add(kneeBall);
+
+        // Contoured Shin Greave
+        const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.10, 0.48, 12), armorMat);
+        shin.position.y = -0.70;
+        shin.castShadow = true;
+        legGroup.add(shin);
+
+        // Pointed Gothic Sabaton Boot (Flows seamlessly from ankle)
+        const ankleBall = new THREE.Mesh(new THREE.SphereGeometry(0.10, 10, 10), darkMailMat);
+        ankleBall.position.set(0, -0.92, 0);
+        legGroup.add(ankleBall);
+
+        const boot = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.12, 0.34), armorMat);
+        boot.position.set(0, -0.96, 0.08);
+        legGroup.add(boot);
+
+        const toeCap = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.16, 6), trimMat);
+        toeCap.rotation.x = Math.PI / 2;
+        toeCap.position.set(0, -0.96, 0.28);
+        legGroup.add(toeCap);
+
+        return legGroup;
+      }
+
+      const leftLeg = buildBlendedLeg(false);
+      rig.add(leftLeg);
+      const rightLeg = buildBlendedLeg(true);
+      rig.add(rightLeg);
+
+      // --- 5. LEFT ARM & BLENDED SHIELD ---
+      const leftArmPivot = new THREE.Group();
+      leftArmPivot.position.set(-0.54, 1.85, 0);
+
+      // Shoulder Ball Joint (Seamless pivot)
+      const shoulderBallL = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 12), darkMailMat);
+      leftArmPivot.add(shoulderBallL);
+
+      // Contoured Gothic Spaulder (wraps naturally over the shoulder)
+      const leftPauldron = new THREE.Group();
+      const pCapL = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 12, 0, Math.PI * 2, 0, Math.PI * 0.7), armorMat);
+      pCapL.rotation.z = -0.3;
+      leftPauldron.add(pCapL);
+      const pTrimL = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.03, 6, 16), trimMat);
+      pTrimL.rotation.x = Math.PI / 2;
+      pTrimL.rotation.z = -0.3;
+      leftPauldron.add(pTrimL);
+      leftArmPivot.add(leftPauldron);
+
+      // Tapered Bicep
+      const leftBicep = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.11, 0.40, 10), armorMat);
+      leftBicep.position.set(0, -0.28, 0);
+      leftArmPivot.add(leftBicep);
+
+      // Elbow Ball Joint
+      const elbowBallL = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 10), trimMat);
+      elbowBallL.position.set(0, -0.48, 0);
+      leftArmPivot.add(elbowBallL);
+
+      // Forearm & Gauntlet
+      const leftForearm = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.09, 0.42, 10), armorMat);
+      leftForearm.position.set(0, -0.68, 0);
+      leftArmPivot.add(leftForearm);
+
+      const leftHand = new THREE.Mesh(new THREE.SphereGeometry(0.10, 8, 8), trimMat);
+      leftHand.position.set(0, -0.90, 0);
+      leftArmPivot.add(leftHand);
+
+      // Smooth Curved Kite/Heater Shield
+      const shieldGroup = new THREE.Group();
+      shieldGroup.position.set(-0.16, -0.52, 0.24);
+      shieldGroup.rotation.y = 0.32;
+
+      const shieldSlab = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.22, 0.74), armorMat);
+      shieldSlab.castShadow = true;
+      shieldGroup.add(shieldSlab);
+
+      const shieldRim = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.25, 0.77), trimMat);
+      shieldRim.scale.set(1.02, 1.02, 1.02);
+      shieldGroup.add(shieldRim);
+
+      const shieldSunDisc = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.16, 16), trimMat);
+      shieldSunDisc.rotation.z = Math.PI / 2;
+      shieldGroup.add(shieldSunDisc);
+
+      const shieldCoreRune = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0), visorGlowMat);
+      shieldCoreRune.position.x = -0.10;
+      shieldGroup.add(shieldCoreRune);
+
+      leftArmPivot.add(shieldGroup);
+      rig.add(leftArmPivot);
+
+      // --- 6. RIGHT ARM & EQUIPPED BOSS WEAPON ---
+      const rightArmPivot = new THREE.Group();
+      rightArmPivot.position.set(0.54, 1.85, 0);
+
+      const shoulderBallR = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 12), darkMailMat);
+      rightArmPivot.add(shoulderBallR);
+
+      const rightPauldron = new THREE.Group();
+      const pCapR = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 12, 0, Math.PI * 2, 0, Math.PI * 0.7), armorMat);
+      pCapR.rotation.z = 0.3;
+      rightPauldron.add(pCapR);
+      const pTrimR = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.03, 6, 16), trimMat);
+      pTrimR.rotation.x = Math.PI / 2;
+      pTrimR.rotation.z = 0.3;
+      rightPauldron.add(pTrimR);
+      rightArmPivot.add(rightPauldron);
+
+      const rightBicep = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.11, 0.40, 10), armorMat);
+      rightBicep.position.set(0, -0.28, 0);
+      rightArmPivot.add(rightBicep);
+
+      const elbowBallR = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 10), trimMat);
+      elbowBallR.position.set(0, -0.48, 0);
+      rightArmPivot.add(elbowBallR);
+
+      const rightForearm = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.09, 0.42, 10), armorMat);
+      rightForearm.position.set(0, -0.68, 0);
+      rightArmPivot.add(rightForearm);
+
+      const rightHand = new THREE.Mesh(new THREE.SphereGeometry(0.10, 8, 8), trimMat);
+      rightHand.position.set(0, -0.90, 0);
+      rightArmPivot.add(rightHand);
+
+      // Weapon
+      const weaponGroup = new THREE.Group();
+      weaponGroup.position.set(0, -0.92, 0.22);
+
+      const hilt = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.65, 10), darkMailMat);
+      hilt.rotation.x = Math.PI / 2;
+      weaponGroup.add(hilt);
+
+      const pommel = new THREE.Mesh(new THREE.OctahedronGeometry(0.09, 0), trimMat);
+      pommel.position.z = -0.34;
+      weaponGroup.add(pommel);
+
+      const crossguard = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.10, 0.12), trimMat);
+      crossguard.position.z = 0.30;
+      weaponGroup.add(crossguard);
+
+      if (currentWeapon.id === 'vaelgor_greatsword') {
+        const bladeLen = 3.2;
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.07, bladeLen), weaponBladeMat);
+        blade.position.z = 0.30 + bladeLen / 2;
+        blade.castShadow = true;
+        weaponGroup.add(blade);
+      } else if (currentWeapon.id === 'astral_blade') {
+        const bladeLen = 2.6;
+        const glaive = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.4, 8), trimMat);
+        glaive.rotation.x = Math.PI / 2;
+        glaive.position.z = 0.4;
+        weaponGroup.add(glaive);
+
+        const crescent = new THREE.Mesh(new THREE.TorusGeometry(0.68, 0.05, 8, 24, Math.PI * 0.9), weaponBladeMat);
+        crescent.rotation.y = Math.PI / 2;
+        crescent.position.z = 1.5;
+        weaponGroup.add(crescent);
+      } else if (currentWeapon.id === 'dragon_twinblade') {
+        const bladeLen = 2.8;
+        const fang = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.06, bladeLen), weaponBladeMat);
+        fang.position.z = 0.30 + bladeLen / 2;
+        fang.rotation.y = 0.06;
+        fang.castShadow = true;
+        weaponGroup.add(fang);
+      } else {
+        const bladeLen = 2.5;
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.05, bladeLen), armorMat);
+        blade.position.z = 0.30 + bladeLen / 2;
+        blade.castShadow = true;
+        weaponGroup.add(blade);
+
+        const fuller = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.065, bladeLen * 0.85), weaponBladeMat);
+        fuller.position.z = 0.30 + (bladeLen * 0.85) / 2;
+        weaponGroup.add(fuller);
+      }
+
+      const slashArc = new THREE.Mesh(
+        new THREE.RingGeometry(1.6, 3.2, 32, 1, 0, Math.PI * 0.9),
+        new THREE.MeshBasicMaterial({
+          color: currentWeapon.color,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.0,
+          blending: THREE.AdditiveBlending
+        })
+      );
+      slashArc.rotation.x = Math.PI / 2;
+      slashArc.position.y = 1.3;
+      rig.add(slashArc);
+
+      rightArmPivot.add(weaponGroup);
+      rig.add(rightArmPivot);
+
+      player.parts = {
+        rig,
+        torso,
+        headGroup,
+        cape,
+        leftLeg,
+        rightLeg,
+        leftArmPivot,
+        rightArmPivot,
+        weaponGroup,
+        slashArc,
+        shieldGroup,
+        sanctumCore
+      };
+    }
+
+    buildPlayerMesh();
+
+    /********************************************************************
+     * 5. THREE UNIQUE SCULPTED BOSSES & AI STATE MACHINES
+     ********************************************************************/
+    const boss = {
+      index: 0,
+      group: new THREE.Group(),
+      pos: new THREE.Vector3(0, 0, -10),
+      yaw: 0,
+      hp: 4200,
+      maxHp: 4200,
+      posture: 0,
+      maxPosture: 100,
+      phase: 1,
+      state: 'idle', // 'idle' | 'move' | 'windup' | 'strike' | 'recover' | 'staggered' | 'phase_transition' | 'dead'
+      currentAttack: null,
+      stateTimer: 0,
+      aiCooldown: 1.2,
+      closeRangeTimer: 0,
+      behindBossTimer: 0,
+      isChannelingWeakness: false,
+      coreWeaknessExposed: false,
+      hitDealtThisAttack: false,
+      parts: {}
+    };
+    scene.add(boss.group);
+
+    function buildBossMesh(bossIdx) {
+      while (boss.group.children.length > 0) {
+        boss.group.remove(boss.group.children[0]);
+      }
+
+      const rig = new THREE.Group();
+      boss.group.add(rig);
+
+      if (bossIdx === 0) {
+        // BOSS 1: VAELGOR, COLOSSAL ARMORED KNIGHT
+        const darkSteelMat = new THREE.MeshStandardMaterial({
+          color: 0x161822,
+          roughness: 0.35,
+          metalness: 0.86
+        });
+        const trimGoldMat = new THREE.MeshStandardMaterial({
+          color: 0xd97706,
+          roughness: 0.28,
+          metalness: 0.92
+        });
+        const emberMat = new THREE.MeshStandardMaterial({
+          color: 0xf97316,
+          emissive: 0xea580c,
+          emissiveIntensity: 0.75,
+          roughness: 0.25,
+          metalness: 0.7
+        });
+        const glowingCoreMat = new THREE.MeshBasicMaterial({
+          color: 0xfbbf24
+        });
+
+        // 1. Contoured Torso & Integrated Furnace Cuirass
+        const torso = new THREE.Group();
+        torso.position.y = 3.2;
+
+        // Smooth lathed monolithic colossus profile
+        const vTorsoPts = [
+          new THREE.Vector2(0.55, 1.6),
+          new THREE.Vector2(1.15, 1.3),
+          new THREE.Vector2(1.35, 0.6),
+          new THREE.Vector2(1.30, -0.2),
+          new THREE.Vector2(1.05, -1.0),
+          new THREE.Vector2(1.15, -1.6)
+        ];
+        const vTorsoGeo = new THREE.LatheGeometry(vTorsoPts, 24);
+        vTorsoGeo.computeVertexNormals();
+        const mainChest = new THREE.Mesh(vTorsoGeo, darkSteelMat);
+        mainChest.scale.set(1.08, 1.0, 0.92);
+        mainChest.castShadow = true;
+        torso.add(mainChest);
+
+        // Heavy Gorget Collar
+        const gorget = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.18, 8, 24), darkSteelMat);
+        gorget.rotation.x = Math.PI / 2;
+        gorget.position.y = 1.45;
+        torso.add(gorget);
+
+        // Integrated Molten Fissures in Chest
+        [-0.45, 0.45].forEach(x => {
+          const fissure = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.2, 8), emberMat);
+          fissure.position.set(x, 0.35, 0.82);
+          fissure.rotation.z = (x > 0 ? -1 : 1) * 0.25;
+          torso.add(fissure);
+        });
+
+        // --- INTEGRATED SPINAL STEAM-FURNACE REACTOR (BACK WEAKNESS) ---
+        const backCore = new THREE.Group();
+        backCore.position.set(0, 0.2, -1.05);
+
+        // Boiler housing welded seamlessly into backplate
+        const boilerHousing = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.52, 1.6, 16), darkSteelMat);
+        backCore.add(boilerHousing);
+
+        // Magma fuel rods
+        [-0.26, 0, 0.26].forEach(x => {
+          const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 1.1, 8), emberMat);
+          rod.position.set(x, 0, -0.24);
+          backCore.add(rod);
+        });
+
+        const reactorSphere = new THREE.Mesh(new THREE.OctahedronGeometry(0.38, 1), glowingCoreMat);
+        reactorSphere.position.set(0, 0, -0.32);
+        backCore.add(reactorSphere);
+
+        // Dual Angled Steam Exhaust Chimneys
+        [-0.38, 0.38].forEach(x => {
+          const chimney = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 1.3, 10), darkSteelMat);
+          chimney.position.set(x, 0.85, -0.15);
+          chimney.rotation.z = (x > 0 ? -1 : 1) * 0.32;
+          chimney.rotation.x = -0.25;
+          backCore.add(chimney);
+
+          const flame = new THREE.Mesh(new THREE.ConeGeometry(0.10, 0.35, 6), emberMat);
+          flame.position.set(0, 0.75, 0);
+          chimney.add(flame);
+        });
+        torso.add(backCore);
+
+        // Scorched War Banner Cloak
+        const tatteredCape = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 4.2, 4, 4), new THREE.MeshStandardMaterial({
+          color: 0x450a0a,
+          roughness: 0.95,
+          side: THREE.DoubleSide
+        }));
+        tatteredCape.position.set(0, 0.8, -1.25);
+        tatteredCape.rotation.x = 0.2;
+        torso.add(tatteredCape);
+
+        rig.add(torso);
+
+        // 2. Head & Horned Demonic Greathelm
+        const headGroup = new THREE.Group();
+        headGroup.position.y = 5.2;
+
+        const helmBase = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.75, 1.25, 16), darkSteelMat);
+        helmBase.castShadow = true;
+        headGroup.add(helmBase);
+
+        [-0.16, 0.16].forEach(yOff => {
+          const slit = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.075, 0.30), emberMat);
+          slit.position.set(0, yOff, 0.52);
+          headGroup.add(slit);
+        });
+
+        // Demonic Horns with smooth rooted sockets
+        [-0.65, 0.65].forEach(x => {
+          const hornGroup = new THREE.Group();
+          hornGroup.position.set(x, 0.45, 0);
+
+          const hornSocket = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.06, 8, 16), darkSteelMat);
+          hornSocket.rotation.y = Math.PI / 2;
+          hornGroup.add(hornSocket);
+
+          const hornSeg1 = new THREE.Mesh(new THREE.ConeGeometry(0.22, 1.2, 10), darkSteelMat);
+          hornSeg1.rotation.z = (x > 0 ? -1 : 1) * 0.55;
+          hornSeg1.rotation.x = 0.3;
+          hornGroup.add(hornSeg1);
+
+          const hornSeg2 = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.1, 8), emberMat);
+          hornSeg2.position.set((x > 0 ? 0.45 : -0.45), 0.7, 0.2);
+          hornSeg2.rotation.z = (x > 0 ? -1 : 1) * 0.95;
+          hornSeg2.rotation.x = -0.4;
+          hornGroup.add(hornSeg2);
+
+          headGroup.add(hornGroup);
+        });
+        rig.add(headGroup);
+
+        // 3. Legs & Ball Joints
+        function buildVaelgorBlendedLeg(isRight) {
+          const legGroup = new THREE.Group();
+          const side = isRight ? 1 : -1;
+          legGroup.position.set(side * 0.65, 1.8, 0);
+
+          const hipBall = new THREE.Mesh(new THREE.SphereGeometry(0.46, 12, 12), darkSteelMat);
+          legGroup.add(hipBall);
+
+          const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.40, 1.4, 14), darkSteelMat);
+          thigh.position.y = -0.4;
+          thigh.castShadow = true;
+          legGroup.add(thigh);
+
+          const kneeBall = new THREE.Mesh(new THREE.SphereGeometry(0.40, 12, 12), darkSteelMat);
+          kneeBall.position.set(0, -1.0, 0.1);
+          const spike = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.45, 6), trimGoldMat);
+          spike.rotation.x = Math.PI / 2;
+          spike.position.set(0, 0, 0.35);
+          kneeBall.add(spike);
+          legGroup.add(kneeBall);
+
+          const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.40, 0.36, 1.3, 14), darkSteelMat);
+          shin.position.y = -1.65;
+          shin.castShadow = true;
+          legGroup.add(shin);
+
+          const boot = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.42, 1.15), darkSteelMat);
+          boot.position.set(0, -2.3, 0.2);
+          legGroup.add(boot);
+
+          return legGroup;
+        }
+
+        const legL = buildVaelgorBlendedLeg(false);
+        rig.add(legL);
+        const legR = buildVaelgorBlendedLeg(true);
+        rig.add(legR);
+
+        // 4. Left Arm & Furnace Fortress Greatshield
+        const leftArm = new THREE.Group();
+        leftArm.position.set(-1.85, 4.3, 0);
+
+        const pauldronL = new THREE.Mesh(new THREE.SphereGeometry(0.95, 16, 16), darkSteelMat);
+        leftArm.add(pauldronL);
+
+        const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.32, 1.8, 12), darkSteelMat);
+        armL.position.y = -1.0;
+        leftArm.add(armL);
+
+        const greatShield = new THREE.Group();
+        greatShield.position.set(-0.45, -1.2, 0.85);
+
+        const shieldSlab = new THREE.Mesh(new THREE.BoxGeometry(0.38, 3.8, 2.3), darkSteelMat);
+        shieldSlab.castShadow = true;
+        greatShield.add(shieldSlab);
+
+        const shieldRim = new THREE.Mesh(new THREE.BoxGeometry(0.42, 3.9, 2.4), trimGoldMat);
+        shieldRim.scale.set(1.02, 1.02, 1.02);
+        greatShield.add(shieldRim);
+
+        const demonEye = new THREE.Mesh(new THREE.OctahedronGeometry(0.52, 1), emberMat);
+        demonEye.position.x = -0.22;
+        greatShield.add(demonEye);
+        leftArm.add(greatShield);
+        rig.add(leftArm);
+
+        // 5. Right Arm & Colossal Greatsword
+        const rightArm = new THREE.Group();
+        rightArm.position.set(1.85, 4.3, 0);
+
+        const pauldronR = new THREE.Mesh(new THREE.SphereGeometry(0.95, 16, 16), darkSteelMat);
+        rightArm.add(pauldronR);
+
+        const armR = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.32, 1.8, 12), darkSteelMat);
+        armR.position.y = -1.0;
+        rightArm.add(armR);
+
+        const swordGroup = new THREE.Group();
+        swordGroup.position.set(0, -1.4, 0.2);
+
+        const sHilt = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 1.4, 10), darkSteelMat);
+        sHilt.rotation.x = Math.PI / 2;
+        swordGroup.add(sHilt);
+
+        const sGuard = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.26, 0.38), trimGoldMat);
+        sGuard.position.z = 0.7;
+        swordGroup.add(sGuard);
+
+        const swordBlade = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.15, 6.2), darkSteelMat);
+        swordBlade.position.z = 0.7 + 3.1;
+        swordBlade.castShadow = true;
+        swordGroup.add(swordBlade);
+
+        const magmaVein = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 5.6), emberMat);
+        magmaVein.position.z = 0.7 + 3.1;
+        swordGroup.add(magmaVein);
+        rightArm.add(swordGroup);
+        rig.add(rightArm);
+
+        boss.parts = {
+          rig,
+          torso,
+          rightArm,
+          leftArm,
+          legL,
+          legR,
+          emberMat,
+          backCore,
+          greatShield,
+          swordBlade,
+          magmaVein
+        };
+
+      } else if (bossIdx === 1) {
+        // BOSS 2: SERAPHINA, CORRUPTED CELESTIAL MAGE
+        const cosmicSilkMat = new THREE.MeshStandardMaterial({
+          color: 0x241442,
+          roughness: 0.45,
+          metalness: 0.55,
+          side: THREE.DoubleSide
+        });
+        const starMat = new THREE.MeshStandardMaterial({
+          color: 0xc084fc,
+          emissive: 0x9333ea,
+          emissiveIntensity: 0.85,
+          roughness: 0.12,
+          metalness: 0.95
+        });
+        const porcelainSkinMat = new THREE.MeshStandardMaterial({
+          color: 0xf3e8ff,
+          roughness: 0.2,
+          metalness: 0.15
+        });
+        const celestialGoldMat = new THREE.MeshStandardMaterial({
+          color: 0xfacc15,
+          roughness: 0.25,
+          metalness: 0.95
+        });
+        const crystalWingMat = new THREE.MeshStandardMaterial({
+          color: 0xe9d5ff,
+          emissive: 0xa855f7,
+          emissiveIntensity: 0.65,
+          roughness: 0.1,
+          metalness: 0.85,
+          transparent: true,
+          opacity: 0.88,
+          side: THREE.DoubleSide
+        });
+
+        // 1. Graceful Flowing Lathed Robe (Bell curvature with seamless drape)
+        const robe = new THREE.Group();
+        robe.position.y = 2.8;
+
+        const gownPts = [
+          new THREE.Vector2(0.38, 1.4),
+          new THREE.Vector2(0.46, 0.8),
+          new THREE.Vector2(0.58, 0.2),
+          new THREE.Vector2(0.78, -0.6),
+          new THREE.Vector2(1.15, -1.6),
+          new THREE.Vector2(1.55, -2.5)
+        ];
+        const gownGeo = new THREE.LatheGeometry(gownPts, 24);
+        gownGeo.computeVertexNormals();
+        const gown = new THREE.Mesh(gownGeo, cosmicSilkMat);
+        gown.castShadow = true;
+        robe.add(gown);
+
+        const hemTrim = new THREE.Mesh(new THREE.TorusGeometry(1.54, 0.05, 8, 32), celestialGoldMat);
+        hemTrim.rotation.x = Math.PI / 2;
+        hemTrim.position.y = -2.5;
+        robe.add(hemTrim);
+
+        // Golden Celestial Corset / Cuirass
+        const corset = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.40, 1.1, 16), celestialGoldMat);
+        corset.position.y = 1.30;
+        corset.castShadow = true;
+        robe.add(corset);
+
+        // Floating Silk Ribbons
+        for (let i = 0; i < 4; i++) {
+          const a = (i / 4) * Math.PI * 2;
+          const ribbon = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 3.2, 2, 6), starMat);
+          ribbon.position.set(Math.cos(a) * 0.65, -0.6, Math.sin(a) * 0.65);
+          ribbon.rotation.y = -a;
+          robe.add(ribbon);
+        }
+        rig.add(robe);
+
+        // 2. Sculpted Porcelain Head & Celestial Tiara
+        const headGroup = new THREE.Group();
+        headGroup.position.y = 5.25;
+
+        const face = new THREE.Mesh(new THREE.SphereGeometry(0.42, 18, 18), porcelainSkinMat);
+        face.scale.set(1.0, 1.15, 1.0);
+        headGroup.add(face);
+
+        const blindfold = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.14, 0.40), starMat);
+        blindfold.position.set(0, 0.05, 0.12);
+        headGroup.add(blindfold);
+
+        const crown = new THREE.Group();
+        crown.position.set(0, 0.48, 0);
+        for (let i = -2; i <= 2; i++) {
+          const spire = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.55 - Math.abs(i) * 0.08, 6), celestialGoldMat);
+          spire.position.set(i * 0.14, 0.2, 0.1);
+          crown.add(spire);
+        }
+        headGroup.add(crown);
+
+        const hairBack = new THREE.Mesh(new THREE.ConeGeometry(0.32, 1.8, 10), cosmicSilkMat);
+        hairBack.position.set(0, -0.6, -0.3);
+        hairBack.rotation.x = -0.25;
+        headGroup.add(hairBack);
+        rig.add(headGroup);
+
+        // 3. Concentric Gyroscopic Eclipse Halo
+        const halo = new THREE.Group();
+        halo.position.set(0, 4.8, -0.65);
+
+        const outerRing = new THREE.Mesh(new THREE.TorusGeometry(2.35, 0.05, 10, 48), celestialGoldMat);
+        halo.add(outerRing);
+
+        const innerRing = new THREE.Mesh(new THREE.TorusGeometry(1.75, 0.045, 10, 48), starMat);
+        halo.add(innerRing);
+
+        const voidSun = new THREE.Mesh(new THREE.SphereGeometry(0.85, 20, 20), new THREE.MeshBasicMaterial({ color: 0x050508 }));
+        halo.add(voidSun);
+
+        const coronaAura = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.45, 36), starMat);
+        halo.add(coronaAura);
+        rig.add(halo);
+
+        // 4. 6 Tiered Crystalline Feathered Wings
+        const wingsGroup = new THREE.Group();
+        wingsGroup.position.set(0, 4.4, -0.45);
+        const leftWings = [];
+        const rightWings = [];
+
+        for (let pair = 0; pair < 3; pair++) {
+          const wingSpan = 2.8 - pair * 0.45;
+          const wingAngle = 0.45 + pair * 0.35;
+
+          const wL = new THREE.Group();
+          wL.position.set(-0.6, -pair * 0.35, 0);
+          const ribL = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.03, wingSpan, 8), celestialGoldMat);
+          ribL.rotation.z = wingAngle;
+          ribL.position.set(-wingSpan * 0.4, 0.2, 0);
+          wL.add(ribL);
+
+          const bladeL = new THREE.Mesh(new THREE.BoxGeometry(wingSpan * 0.85, 0.42, 0.04), crystalWingMat);
+          bladeL.rotation.z = wingAngle;
+          bladeL.position.set(-wingSpan * 0.4, 0.1, 0);
+          wL.add(bladeL);
+          wingsGroup.add(wL);
+          leftWings.push(wL);
+
+          const wR = new THREE.Group();
+          wR.position.set(0.6, -pair * 0.35, 0);
+          const ribR = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.03, wingSpan, 8), celestialGoldMat);
+          ribR.rotation.z = -wingAngle;
+          ribR.position.set(wingSpan * 0.4, 0.2, 0);
+          wR.add(ribR);
+
+          const bladeR = new THREE.Mesh(new THREE.BoxGeometry(wingSpan * 0.85, 0.42, 0.04), crystalWingMat);
+          bladeR.rotation.z = -wingAngle;
+          bladeR.position.set(wingSpan * 0.4, 0.1, 0);
+          wR.add(bladeR);
+          wingsGroup.add(wR);
+          rightWings.push(wR);
+        }
+        rig.add(wingsGroup);
+
+        // 5. Right Arm & Astrolabe Staff
+        const rightArm = new THREE.Group();
+        rightArm.position.set(1.25, 4.3, 0.3);
+
+        const armMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.11, 1.4, 10), porcelainSkinMat);
+        armMesh.position.y = -0.55;
+        rightArm.add(armMesh);
+
+        const staffGroup = new THREE.Group();
+        staffGroup.position.set(0.2, -0.6, 0.2);
+
+        const staffShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.045, 5.2, 10), celestialGoldMat);
+        staffGroup.add(staffShaft);
+
+        const astrolabeHead = new THREE.Group();
+        astrolabeHead.position.y = 2.6;
+
+        const gRing1 = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.03, 8, 24), celestialGoldMat);
+        astrolabeHead.add(gRing1);
+        const gRing2 = new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.03, 8, 24), starMat);
+        gRing2.rotation.x = Math.PI / 2;
+        astrolabeHead.add(gRing2);
+        const gRing3 = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.03, 8, 24), celestialGoldMat);
+        gRing3.rotation.y = Math.PI / 2;
+        astrolabeHead.add(gRing3);
+
+        const pulsarStar = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0), starMat);
+        astrolabeHead.add(pulsarStar);
+        staffGroup.add(astrolabeHead);
+
+        rightArm.add(staffGroup);
+        rig.add(rightArm);
+
+        // 6. Barrier
+        const barrier = new THREE.Mesh(
+          new THREE.IcosahedronGeometry(3.2, 2),
+          new THREE.MeshBasicMaterial({
+            color: 0xc084fc,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.0
+          })
+        );
+        barrier.position.y = 3.6;
+        rig.add(barrier);
+
+        // 7. Satellites
+        const satellites = [];
+        for (let i = 0; i < 3; i++) {
+          const sat = new THREE.Mesh(new THREE.OctahedronGeometry(0.20, 0), starMat);
+          rig.add(sat);
+          satellites.push(sat);
+        }
+
+        boss.parts = {
+          rig,
+          robe,
+          halo,
+          wingsGroup,
+          leftWings,
+          rightWings,
+          rightArm,
+          barrier,
+          starMat,
+          astrolabeHead,
+          satellites
+        };
+
+      } else {
+        // BOSS 3: MALAKOR, THE SHADOW DRAGON (ANATOMICALLY BLENDED 3D ELDER WYRM)
+        const scaleMat = new THREE.MeshStandardMaterial({
+          color: 0x12141c,
+          roughness: 0.32,
+          metalness: 0.78,
+          flatShading: false
+        });
+        const darkBoneMat = new THREE.MeshStandardMaterial({
+          color: 0x242429,
+          roughness: 0.38,
+          metalness: 0.60,
+          flatShading: false
+        });
+        const coreMat = new THREE.MeshStandardMaterial({
+          color: 0xf43f5e,
+          emissive: 0xe11d48,
+          emissiveIntensity: 1.15,
+          roughness: 0.12,
+          metalness: 0.88
+        });
+        const wingMembraneMat = new THREE.MeshStandardMaterial({
+          color: 0x3b0717,
+          emissive: 0x881337,
+          emissiveIntensity: 0.42,
+          roughness: 0.62,
+          metalness: 0.28,
+          side: THREE.DoubleSide
+        });
+        const toothMat = new THREE.MeshStandardMaterial({
+          color: 0xf5f5f7,
+          roughness: 0.20,
+          metalness: 0.10
+        });
+
+        // 1. Smooth Muscular Dragon Torso & Skeletal Ribcage
+        const body = new THREE.Group();
+        body.position.set(0, 2.7, 0);
+
+        // Smooth contoured dragon body lathe
+        const dBodyPts = [
+          new THREE.Vector2(0.95, 2.5),
+          new THREE.Vector2(1.65, 1.6),
+          new THREE.Vector2(1.85, 0.3),
+          new THREE.Vector2(1.70, -0.9),
+          new THREE.Vector2(1.35, -1.9),
+          new THREE.Vector2(0.85, -2.6)
+        ];
+        const dBodyGeo = new THREE.LatheGeometry(dBodyPts, 24);
+        dBodyGeo.computeVertexNormals();
+        const torsoMesh = new THREE.Mesh(dBodyGeo, scaleMat);
+        torsoMesh.rotation.x = Math.PI / 2 - 0.22;
+        torsoMesh.castShadow = true;
+        body.add(torsoMesh);
+
+        // Skeletal protective ribcage shielding the core
+        const ribcage = new THREE.Group();
+        ribcage.position.set(0, 0.25, 0.4);
+        for (let r = 0; r < 5; r++) {
+          const zOffset = 1.3 - r * 0.65;
+          const ribWidth = 1.75 - Math.abs(r - 2) * 0.22;
+          [-1, 1].forEach(side => {
+            const rib = new THREE.Mesh(
+              new THREE.TorusGeometry(ribWidth, 0.085, 8, 16, Math.PI * 0.48),
+              darkBoneMat
+            );
+            rib.position.set(side * 0.2, 0, zOffset);
+            rib.rotation.y = side * (Math.PI / 2 + 0.18);
+            rib.rotation.z = side * -0.42;
+            ribcage.add(rib);
+          });
+        }
+        body.add(ribcage);
+
+        // Deep-seated Abyssal Heart Core (Pulsing Weakpoint)
+        const chestCore = new THREE.Mesh(new THREE.OctahedronGeometry(0.85, 2), coreMat);
+        chestCore.position.set(0, 0.22, 1.45);
+        body.add(chestCore);
+
+        const innerCoreAura = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 12), new THREE.MeshBasicMaterial({
+          color: 0xff0055,
+          transparent: true,
+          opacity: 0.65
+        }));
+        innerCoreAura.position.set(0, 0.22, 1.45);
+        body.add(innerCoreAura);
+
+        // Dorsal Spinal Scutes along the spine
+        for (let i = 0; i < 10; i++) {
+          const spine = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.95 - i * 0.04, 5), darkBoneMat);
+          spine.position.set(0, 1.55 - i * 0.07, 2.0 - i * 0.52);
+          spine.rotation.x = -0.58;
+          body.add(spine);
+        }
+        rig.add(body);
+
+        // 2. Continuous Curved Neck & Terrifying Sculpted Dragon Skull
+        const headGroup = new THREE.Group();
+        headGroup.position.set(0, 4.8, 2.6);
+
+        // Sinuous Neck hierarchy with ball sockets and armor plates
+        const neckBase = new THREE.Mesh(new THREE.SphereGeometry(0.85, 14, 14), scaleMat);
+        neckBase.position.set(0, -1.0, -0.7);
+        headGroup.add(neckBase);
+
+        const neckCylinder = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 1.05, 2.3, 14), scaleMat);
+        neckCylinder.rotation.x = 0.62;
+        neckCylinder.position.set(0, -0.55, -0.45);
+        headGroup.add(neckCylinder);
+
+        for (let s = 0; s < 4; s++) {
+          const neckScute = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.75 - s * 0.08, 4), darkBoneMat);
+          neckScute.position.set(0, 0.15 - s * 0.40, -0.05 - s * 0.38);
+          neckScute.rotation.x = -0.65;
+          headGroup.add(neckScute);
+        }
+
+        // Draconic Skull & Predatory Snout
+        const skullCranium = new THREE.Mesh(new THREE.CylinderGeometry(0.70, 0.88, 1.6, 8), scaleMat);
+        skullCranium.rotation.x = Math.PI / 2 + 0.14;
+        skullCranium.position.set(0, 0.25, 0.2);
+        skullCranium.castShadow = true;
+        headGroup.add(skullCranium);
+
+        const snout = new THREE.Mesh(new THREE.ConeGeometry(0.78, 2.2, 8), scaleMat);
+        snout.rotation.x = Math.PI / 2 + 0.18;
+        snout.position.set(0, 0.15, 1.45);
+        snout.castShadow = true;
+        headGroup.add(snout);
+
+        const nasalHorn = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.55, 5), darkBoneMat);
+        nasalHorn.position.set(0, 0.55, 2.15);
+        nasalHorn.rotation.x = 0.35;
+        headGroup.add(nasalHorn);
+
+        // Deep recessed eyes with glowing crimson slit cores
+        [-0.42, 0.42].forEach(x => {
+          const brow = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.12, 0.55), darkBoneMat);
+          brow.position.set(x * 1.15, 0.52, 0.45);
+          brow.rotation.z = (x > 0 ? -1 : 1) * 0.25;
+          headGroup.add(brow);
+
+          const eye = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.11, 0.26), coreMat);
+          eye.position.set(x * 1.18, 0.44, 0.48);
+          headGroup.add(eye);
+        });
+
+        // Sweeping Crown Horns with organic segmented roots & cheek spikes
+        [-0.60, 0.60].forEach(x => {
+          const sideMult = x > 0 ? 1 : -1;
+          const hornGroup = new THREE.Group();
+          hornGroup.position.set(x, 0.85, -0.65);
+
+          const hornSeg1 = new THREE.Mesh(new THREE.ConeGeometry(0.24, 1.4, 8), darkBoneMat);
+          hornSeg1.rotation.set(-0.75, 0, -sideMult * 0.32);
+          hornGroup.add(hornSeg1);
+
+          const hornSeg2 = new THREE.Mesh(new THREE.ConeGeometry(0.17, 1.2, 8), darkBoneMat);
+          hornSeg2.position.set(sideMult * 0.35, 0.85, -0.65);
+          hornSeg2.rotation.set(-0.95, 0, -sideMult * 0.52);
+          hornGroup.add(hornSeg2);
+
+          const hornSeg3 = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.95, 6), coreMat);
+          hornSeg3.position.set(sideMult * 0.75, 1.6, -1.35);
+          hornSeg3.rotation.set(-1.15, 0, -sideMult * 0.75);
+          hornGroup.add(hornSeg3);
+
+          headGroup.add(hornGroup);
+
+          // Lateral Cheek Spikes
+          const cheekSpike = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.65, 5), darkBoneMat);
+          cheekSpike.position.set(sideMult * 0.82, -0.05, 0.15);
+          cheekSpike.rotation.set(0.2, 0, -sideMult * 1.25);
+          headGroup.add(cheekSpike);
+        });
+
+        // Articulated Lower Jaw with interlocking fangs
+        const jaw = new THREE.Group();
+        jaw.position.set(0, -0.22, 0.35);
+
+        const jawMesh = new THREE.Mesh(new THREE.ConeGeometry(0.72, 2.1, 8), scaleMat);
+        jawMesh.rotation.x = Math.PI / 2;
+        jawMesh.position.set(0, -0.12, 0.85);
+        jaw.add(jawMesh);
+
+        for (let i = 0; i < 6; i++) {
+          [-0.28, 0.28].forEach(x => {
+            const lowerFang = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.28, 4), toothMat);
+            lowerFang.position.set(x * (1 - i * 0.12), 0.14, 0.4 + i * 0.28);
+            jaw.add(lowerFang);
+
+            const upperFang = new THREE.Mesh(new THREE.ConeGeometry(0.065, 0.32, 4), toothMat);
+            upperFang.position.set(x * (1 - i * 0.12), -0.12, 0.45 + i * 0.28);
+            upperFang.rotation.x = Math.PI;
+            headGroup.add(upperFang);
+          });
+        }
+        headGroup.add(jaw);
+
+        // Deep Incandescent Throat Flame (Swells during Breath attacks)
+        const throatFlame = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 12), coreMat);
+        throatFlame.position.set(0, 0.06, 0.35);
+        headGroup.add(throatFlame);
+        rig.add(headGroup);
+
+        // 3. Gigantic Articulated Dragon Wings with Scalloped 3D Webbing
+        function buildBlendedDragonWing(isRight) {
+          const wingGroup = new THREE.Group();
+          const side = isRight ? 1 : -1;
+          wingGroup.position.set(side * 1.5, 3.9, 0.3);
+
+          const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 12), scaleMat);
+          wingGroup.add(shoulder);
+
+          const armBone = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.20, 2.9, 10), darkBoneMat);
+          armBone.position.set(side * 1.35, 0.85, 0.05);
+          armBone.rotation.z = side * -0.75;
+          armBone.rotation.y = side * 0.18;
+          wingGroup.add(armBone);
+
+          const apex = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 10), darkBoneMat);
+          apex.position.set(side * 2.8, 2.1, 0.3);
+          const thumbClaw = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.65, 6), darkBoneMat);
+          thumbClaw.rotation.x = Math.PI / 2;
+          thumbClaw.position.set(0, 0, 0.42);
+          apex.add(thumbClaw);
+          wingGroup.add(apex);
+
+          // 4 Articulated Finger Bone Struts
+          const sparsGroup = new THREE.Group();
+          sparsGroup.position.set(side * 2.8, 2.1, 0.3);
+
+          for (let f = 0; f < 4; f++) {
+            const sparLen = 5.2 - f * 0.75;
+            const spar = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.035, sparLen, 6), darkBoneMat);
+            spar.position.set(side * (sparLen * 0.42), -sparLen * 0.32 + f * 0.22, -f * 0.42);
+            spar.rotation.z = side * (-0.45 - f * 0.22);
+            spar.rotation.y = side * (-f * 0.18);
+            sparsGroup.add(spar);
+          }
+          wingGroup.add(sparsGroup);
+
+          // Procedural Scalloped Wing Membrane Mesh
+          const verts = [
+            0, 0, 0,
+            side * 1.5, 1.1, 0.1,
+            side * 2.8, 2.1, 0.3,
+            side * 5.2, 2.7, -0.2,
+            side * 4.6, 1.6, -0.5,
+            side * 5.8, 1.0, -0.8,
+            side * 4.3, 0.1, -1.0,
+            side * 4.9, -0.6, -1.3,
+            side * 3.4, -1.0, -1.4,
+            side * 3.6, -1.6, -1.6,
+            side * 1.9, -1.1, -1.4,
+            side * 0.8, -0.7, -1.2
+          ];
+          const indices = [
+            0, 1, 2,
+            2, 3, 4,
+            2, 4, 5,
+            2, 5, 6,
+            2, 6, 7,
+            2, 7, 8,
+            2, 8, 9,
+            2, 9, 10,
+            2, 10, 11,
+            0, 2, 11
+          ];
+          const geo = new THREE.BufferGeometry();
+          geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+          geo.setIndex(indices);
+          geo.computeVertexNormals();
+
+          const membraneMesh = new THREE.Mesh(geo, wingMembraneMat);
+          wingGroup.add(membraneMesh);
+
+          return wingGroup;
+        }
+
+        const leftWing = buildBlendedDragonWing(false);
+        rig.add(leftWing);
+        const rightWing = buildBlendedDragonWing(true);
+        rig.add(rightWing);
+
+        // 4. Grounded Quadruped Dragon Limbs (Claws Rest Firmly at Ground y = 0.0)
+        function buildBlendedDragonLimb(isFore, isRight) {
+          const limb = new THREE.Group();
+          const side = isRight ? 1 : -1;
+          const zPos = isFore ? 1.5 : -1.5;
+          limb.position.set(side * 1.55, 2.35, zPos);
+
+          const hipBall = new THREE.Mesh(new THREE.SphereGeometry(0.48, 12, 12), scaleMat);
+          limb.add(hipBall);
+
+          // Thigh
+          const thighGroup = new THREE.Group();
+          const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.30, 1.25, 10), scaleMat);
+          thigh.position.set(0, -0.62, 0);
+          thigh.rotation.z = side * -0.15;
+          thigh.rotation.x = isFore ? 0.22 : -0.25;
+          thigh.castShadow = true;
+          thighGroup.add(thigh);
+          limb.add(thighGroup);
+
+          // Knee Joint
+          const kneeGroup = new THREE.Group();
+          kneeGroup.position.set(side * 0.12, -1.22, isFore ? 0.28 : -0.32);
+
+          const kneeBall = new THREE.Mesh(new THREE.SphereGeometry(0.34, 10, 10), scaleMat);
+          kneeGroup.add(kneeBall);
+
+          const kneeCap = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.35, 0.15), darkBoneMat);
+          kneeCap.position.set(0, 0, isFore ? 0.28 : -0.28);
+          kneeGroup.add(kneeCap);
+
+          // Shin
+          const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.30, 0.22, 1.10, 10), scaleMat);
+          shin.position.set(0, -0.55, 0);
+          shin.rotation.x = isFore ? -0.32 : 0.35;
+          shin.castShadow = true;
+          kneeGroup.add(shin);
+
+          // Paw & Grounded Talons (Touches y = 0.0 precisely)
+          const pawGroup = new THREE.Group();
+          pawGroup.position.set(0, -1.04, isFore ? 0.35 : -0.35);
+
+          const pawBox = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.18, 0.95), darkBoneMat);
+          pawBox.position.set(0, 0.09, 0);
+          pawBox.castShadow = true;
+          pawGroup.add(pawBox);
+
+          // 4 Curved Talons gripping the stone floor at y = 0.0
+          [-0.27, -0.09, 0.09, 0.27].forEach(tx => {
+            const claw = new THREE.Mesh(new THREE.ConeGeometry(0.075, 0.45, 5), darkBoneMat);
+            claw.rotation.x = Math.PI / 2 + 0.15;
+            claw.position.set(tx, 0.04, 0.58);
+            pawGroup.add(claw);
+          });
+
+          // Rear Heel Spur
+          const rearSpur = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.35, 5), darkBoneMat);
+          rearSpur.rotation.x = -Math.PI / 2 - 0.2;
+          rearSpur.position.set(0, 0.08, -0.55);
+          pawGroup.add(rearSpur);
+
+          kneeGroup.add(pawGroup);
+          limb.add(kneeGroup);
+
+          limb.kneeGroup = kneeGroup;
+          limb.pawGroup = pawGroup;
+          return limb;
+        }
+
+        const foreLegL = buildBlendedDragonLimb(true, false);
+        const foreLegR = buildBlendedDragonLimb(true, true);
+        const hindLegL = buildBlendedDragonLimb(false, false);
+        const hindLegR = buildBlendedDragonLimb(false, true);
+
+        rig.add(foreLegL);
+        rig.add(foreLegR);
+        rig.add(hindLegL);
+        rig.add(hindLegR);
+
+        // 5. Articulated Tail & Shadowflame Thagomizer
+        const tailGroup = new THREE.Group();
+        tailGroup.position.set(0, 2.2, -2.4);
+
+        const tailSegments = [];
+        let prevTail = tailGroup;
+
+        for (let t = 0; t < 8; t++) {
+          const segGroup = new THREE.Group();
+          const segLen = 0.95;
+          segGroup.position.set(0, -0.12, -segLen);
+
+          // Socket ball joint between vertebrae
+          const ballJoint = new THREE.Mesh(new THREE.SphereGeometry(0.55 - t * 0.055, 8, 8), scaleMat);
+          segGroup.add(ballJoint);
+
+          const segRadius = 0.60 - t * 0.06;
+          const segMesh = new THREE.Mesh(new THREE.CylinderGeometry(segRadius * 0.85, segRadius, segLen, 10), scaleMat);
+          segMesh.rotation.x = Math.PI / 2;
+          segMesh.position.z = -segLen / 2;
+          segMesh.castShadow = true;
+          segGroup.add(segMesh);
+
+          const tSpike = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.52 - t * 0.035, 4), darkBoneMat);
+          tSpike.position.set(0, segRadius + 0.12, -segLen / 2);
+          tSpike.rotation.x = -0.45;
+          segGroup.add(tSpike);
+
+          prevTail.add(segGroup);
+          tailSegments.push(segGroup);
+          prevTail = segGroup;
+        }
+
+        const tailMace = new THREE.Mesh(new THREE.OctahedronGeometry(0.55, 1), coreMat);
+        tailMace.position.set(0, 0, -1.05);
+        for (let i = 0; i < 4; i++) {
+          const a = (i / 4) * Math.PI * 2;
+          const blade = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.75, 4), darkBoneMat);
+          blade.position.set(Math.cos(a) * 0.55, Math.sin(a) * 0.55, 0);
+          blade.rotation.z = a - Math.PI / 2;
+          tailMace.add(blade);
+        }
+        prevTail.add(tailMace);
+        rig.add(tailGroup);
+
+        boss.parts = {
+          rig,
+          body,
+          chestCore,
+          headGroup,
+          jaw,
+          throatFlame,
+          leftWing,
+          rightWing,
+          foreLegL,
+          foreLegR,
+          hindLegL,
+          hindLegR,
+          tailGroup,
+          tailSegments,
+          coreMat
+        };
+      }
+    }
+
+    /********************************************************************
+     * 6. PROJECTILES, TELEGRAPH ZONES, SHOCKWAVES & PARTICLE VFX
+     ********************************************************************/
+    const activeProjectiles = [];
+    const activeTelegraphs = [];
+    const activeParticles = [];
+    const activeShockwaves = [];
+
+    function spawnParticles(pos, color, count = 18, speed = 6, size = 0.18) {
+      const mat = new THREE.MeshBasicMaterial({ color });
+      const geo = new THREE.BoxGeometry(size, size, size);
+      for (let i = 0; i < count; i++) {
+        const m = new THREE.Mesh(geo, mat);
+        m.position.copy(pos);
+        const a = Math.random() * Math.PI * 2;
+        const spd = (0.3 + Math.random() * 0.9) * speed;
+        scene.add(m);
+        activeParticles.push({
+          mesh: m,
+          vel: new THREE.Vector3(Math.cos(a) * spd, 2 + Math.random() * speed * 0.8, Math.sin(a) * spd),
+          age: 0,
+          maxLife: 0.45 + Math.random() * 0.35
+        });
+      }
+    }
+
+    function spawnShockwaveRing(pos, color, maxRadius = 6, duration = 0.55) {
+      const mesh = new THREE.Mesh(
+        new THREE.RingGeometry(0.4, 0.85, 36),
+        new THREE.MeshBasicMaterial({
+          color,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.9,
+          blending: THREE.AdditiveBlending
+        })
+      );
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.set(pos.x, 0.08, pos.z);
+      scene.add(mesh);
+      activeShockwaves.push({ mesh, maxRadius, duration, age: 0 });
+    }
+
+    // Ground Telegraph Warning Circle for Boss AOEs / Slams
+    function spawnGroundTelegraph(pos, radius, duration, color, onDetonate) {
+      const group = new THREE.Group();
+      group.position.set(pos.x, 0.05, pos.z);
+
+      const outerRing = new THREE.Mesh(
+        new THREE.RingGeometry(radius * 0.92, radius, 36),
+        new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
+      );
+      outerRing.rotation.x = -Math.PI / 2;
+      group.add(outerRing);
+
+      const fillDisc = new THREE.Mesh(
+        new THREE.CircleGeometry(radius, 36),
+        new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.25 })
+      );
+      fillDisc.rotation.x = -Math.PI / 2;
+      fillDisc.scale.set(0.05, 0.05, 1);
+      group.add(fillDisc);
+
+      scene.add(group);
+      activeTelegraphs.push({
+        group,
+        fillDisc,
+        pos: pos.clone(),
+        radius,
+        duration,
+        age: 0,
+        onDetonate
+      });
+    }
+
+    function clearCombatEntities() {
+      activeProjectiles.forEach(p => scene.remove(p.mesh));
+      activeProjectiles.length = 0;
+      activeTelegraphs.forEach(t => scene.remove(t.group));
+      activeTelegraphs.length = 0;
+      activeShockwaves.forEach(s => scene.remove(s.mesh));
+      activeShockwaves.length = 0;
+    }
+
+    /********************************************************************
+     * 7. FLOATING COMBAT TEXT & SOULS BANNERS
+     ********************************************************************/
+    const floatingContainer = document.getElementById('floating-text-container');
+
+    function spawnFloatingText(worldPos, text, colorClass = 'text-amber-300', sizeClass = 'text-lg') {
+      const vec = worldPos.clone();
+      vec.y += 2.2;
+      vec.project(camera);
+      if (vec.z > 1) return;
+
+      const x = (vec.x * 0.5 + 0.5) * window.innerWidth;
+      const y = (-(vec.y * 0.5) + 0.5) * window.innerHeight;
+
+      const el = document.createElement('div');
+      el.className = `floating-dmg font-gothic font-extrabold ${colorClass} ${sizeClass}`;
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      el.textContent = text;
+      floatingContainer.appendChild(el);
+      setTimeout(() => el.remove(), 1050);
+    }
+
+    function showSoulsBanner(title, subtitle, colorHex = '#facc15') {
+      const banner = document.getElementById('souls-banner');
+      const titleEl = document.getElementById('souls-banner-title');
+      const subEl = document.getElementById('souls-banner-sub');
+
+      titleEl.textContent = title;
+      titleEl.style.color = colorHex;
+      subEl.textContent = subtitle;
+
+      banner.classList.remove('hidden', 'souls-banner-anim');
+      void banner.offsetWidth; // Reflow
+      banner.classList.add('flex', 'souls-banner-anim');
+
+      setTimeout(() => {
+        banner.classList.add('hidden');
+        banner.classList.remove('flex');
+      }, 3400);
+    }
+
+    function setTelegraphAlert(text) {
+      const el = document.getElementById('telegraph-alert');
+      const txt = document.getElementById('telegraph-text');
+      if (!text) {
+        el.classList.add('hidden');
+      } else {
+        txt.textContent = text;
+        el.classList.remove('hidden');
+      }
+    }
+
+    /********************************************************************
+     * 8. ENCOUNTER INITIALIZATION, CHECKPOINTS & COMBAT LOGIC
+     ********************************************************************/
+    let slowMoTimer = 0;
+    let timeScale = 1.0;
+    let cameraShake = 0;
+
+    function startBossEncounter(bossIdx) {
+      clearCombatEntities();
+      const cfg = BOSS_CONFIGS[bossIdx];
+      boss.index = bossIdx;
+      boss.maxHp = cfg.maxHp;
+      boss.hp = cfg.maxHp;
+      boss.maxPosture = cfg.maxPosture;
+      boss.posture = 0;
+      boss.phase = 1;
+      boss.state = 'idle';
+      boss.stateTimer = 0;
+      boss.aiCooldown = 1.4;
+      boss.isChannelingWeakness = false;
+      boss.coreWeaknessExposed = false;
+      boss.pos.set(0, 0, -10);
+      boss.yaw = 0;
+      boss.group.position.copy(boss.pos);
+      boss.group.rotation.set(0, 0, 0);
+
+      buildBossMesh(bossIdx);
+
+      // Reset Player at Sanctum Checkpoint
+      player.hp = player.maxHp;
+      player.stamina = player.maxStamina;
+      player.flasks = 4;
+      player.state = 'idle';
+      player.stateTimer = 0;
+      player.comboStep = 0;
+      player.invulnTimer = 0;
+      player.parryWindowTimer = 0;
+      player.spellCooldown = 0;
+      player.counterSurgeBuff = false;
+      player.pos.set(0, 0, 14);
+      player.yaw = Math.PI;
+      player.group.position.copy(player.pos);
+
+      // Update Boss HUD
+      document.getElementById('boss-name').textContent = cfg.name;
+      document.getElementById('boss-phase-badge').textContent = 'PHASE I';
+      document.getElementById('boss-phase-badge').className =
+        'px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-red-500/20 text-red-300 border border-red-500/40';
+      document.getElementById('boss-weakness-hint').textContent = cfg.weaknessText;
+      setTelegraphAlert(null);
+
+      updateHUD();
+      if (typeof updateMovingScrollbarUI === 'function') updateMovingScrollbarUI(bossIdx);
+      showSoulsBanner(cfg.name, 'CONFRONT THE FALLEN LORD', '#facc15');
+    }
+
+    // Damage Boss Function (Handles Backstab / Channel Interrupt / Core Crit & Phase II Transition)
+    function damageBoss(rawDmg, rawPosture, sourceType = 'melee') {
+      if (boss.state === 'dead' || boss.state === 'phase_transition') return;
+
+      let finalDmg = rawDmg;
+      let finalPosture = rawPosture;
+      let critLabel = '';
+
+      // 1. Player Counter Surge Buff from Perfect Dodge
+      if (player.counterSurgeBuff) {
+        finalDmg *= 1.35;
+        finalPosture *= 1.35;
+        player.counterSurgeBuff = false;
+        document.getElementById('player-buff-pill').classList.add('hidden');
+        critLabel = 'COUNTER SURGE! ';
+      }
+
+      // 2. Staggered Boss takes 1.75x Critical Damage
+      if (boss.state === 'staggered') {
+        finalDmg *= 1.75;
+        critLabel = 'CRITICAL! ';
+      }
+
+      // 3. Boss-Specific Weaknesses
+      if (boss.index === 0) {
+        // Vaelgor Weakness: Striking his exposed back
+        const toPlayer = new THREE.Vector3().subVectors(player.pos, boss.pos).normalize();
+        const bossForward = new THREE.Vector3(Math.sin(boss.yaw), 0, Math.cos(boss.yaw));
+        if (toPlayer.dot(bossForward) < -0.25) {
+          finalDmg *= 1.45;
+          finalPosture *= 1.65;
+          critLabel = 'BACKSTAB WEAKPOINT! ';
+        }
+      } else if (boss.index === 1) {
+        // Seraphina Weakness: Hitting her with Spell or Heavy while channeling shatters her Astral Barrier!
+        if (boss.isChannelingWeakness && (sourceType === 'spell' || sourceType === 'heavy')) {
+          finalDmg *= 1.6;
+          finalPosture += 65;
+          boss.isChannelingWeakness = false;
+          if (boss.parts.barrier) boss.parts.barrier.material.opacity = 0;
+          spawnShockwaveRing(boss.pos, 0xc084fc, 8, 0.5);
+          spawnFloatingText(boss.pos, 'BARRIER SHATTERED!', 'text-purple-300', 'text-xl');
+        }
+      } else if (boss.index === 2) {
+        // Malakor Weakness: Striking Chest/Head Core from the front
+        const toPlayer = new THREE.Vector3().subVectors(player.pos, boss.pos).normalize();
+        const bossForward = new THREE.Vector3(Math.sin(boss.yaw), 0, Math.cos(boss.yaw));
+        if (toPlayer.dot(bossForward) > 0.35 || boss.coreWeaknessExposed) {
+          finalDmg *= 1.45;
+          finalPosture *= 1.5;
+          critLabel = 'CORE HIT! ';
+        }
+      }
+
+      finalDmg = Math.round(finalDmg);
+      boss.hp = Math.max(0, boss.hp - finalDmg);
+      if (boss.state !== 'staggered') {
+        boss.posture = Math.min(boss.maxPosture, boss.posture + finalPosture);
+      }
+
+      sfx.playHitImpact(sourceType === 'heavy');
+      spawnParticles(
+        new THREE.Vector3(boss.pos.x, 2.4, boss.pos.z),
+        BOSS_CONFIGS[boss.index].color,
+        14,
+        7
+      );
+      spawnFloatingText(
+        boss.pos,
+        `${critLabel}${finalDmg}`,
+        critLabel ? 'text-amber-300' : 'text-white',
+        critLabel ? 'text-xl' : 'text-base'
+      );
+
+      // Check Phase II Transition at 50% HP
+      if (boss.phase === 1 && boss.hp <= boss.maxHp * 0.5 && boss.hp > 0) {
+        triggerBossPhaseTwo();
+        updateHUD();
+        return;
+      }
+
+      // Check Posture Break -> Stagger State
+      if (boss.posture >= boss.maxPosture && boss.state !== 'staggered' && boss.hp > 0) {
+        boss.posture = 0;
+        boss.state = 'staggered';
+        boss.stateTimer = 4.2;
+        boss.isChannelingWeakness = false;
+        setTelegraphAlert(null);
+        sfx.playParryClang();
+        spawnShockwaveRing(boss.pos, 0xfacc15, 9, 0.65);
+        spawnFloatingText(boss.pos, 'STAGGERED — VULNERABLE!', 'text-yellow-300', 'text-2xl');
+      }
+
+      // Check Boss Defeat
+      if (boss.hp <= 0) {
+        handleBossDefeated();
+      }
+
+      updateHUD();
+    }
+
+    function triggerBossPhaseTwo() {
+      boss.phase = 2;
+      boss.state = 'phase_transition';
+      boss.stateTimer = 2.4;
+      boss.posture = 0;
+      boss.isChannelingWeakness = false;
+      setTelegraphAlert(null);
+
+      const cfg = BOSS_CONFIGS[boss.index];
+      document.getElementById('boss-name').textContent = cfg.phase2Title;
+      document.getElementById('boss-phase-badge').textContent = 'PHASE II';
+      document.getElementById('boss-phase-badge').className =
+        'px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-amber-500/30 text-amber-200 border border-amber-400';
+
+      sfx.playBossRoar();
+      cameraShake = 0.65;
+      spawnShockwaveRing(boss.pos, cfg.color, 16, 0.9);
+      spawnParticles(new THREE.Vector3(boss.pos.x, 3, boss.pos.z), cfg.color, 36, 12, 0.25);
+
+      // Phase 2 Visual Upgrade on Boss Mesh
+      if (boss.index === 0 && boss.parts.emberMat) {
+        boss.parts.emberMat.emissiveIntensity = 1.3;
+      } else if (boss.index === 1 && boss.parts.starMat) {
+        boss.parts.starMat.color.setHex(0xf43f5e);
+        boss.parts.starMat.emissive.setHex(0xe11d48);
+      } else if (boss.index === 2 && boss.parts.coreMat) {
+        boss.parts.coreMat.emissiveIntensity = 1.5;
+      }
+
+      showSoulsBanner('PHASE II — ECLIPSE AWAKENING', cfg.phase2Title, '#fb923c');
+    }
+
+    function handleBossDefeated() {
+      boss.state = 'dead';
+      boss.stateTimer = 4.0;
+      clearCombatEntities();
+      setTelegraphAlert(null);
+      sfx.playBossRoar();
+      cameraShake = 0.8;
+      spawnShockwaveRing(boss.pos, 0xfacc15, 22, 1.2);
+      spawnParticles(new THREE.Vector3(boss.pos.x, 3, boss.pos.z), 0xfacc15, 50, 14, 0.28);
+
+      // Unlock Boss Relics
+      defeatedBosses[boss.index] = true;
+      WEAPONS.forEach(w => { if (w.bossReq === boss.index) w.unlocked = true; });
+      SPELLS.forEach(s => { if (s.bossReq === boss.index) s.unlocked = true; });
+      ARMORS.forEach(a => { if (a.bossReq === boss.index) a.unlocked = true; });
+
+      document.getElementById('armory-unlock-badge').classList.remove('hidden');
+      updateProgressionBadges();
+
+      showSoulsBanner(
+        'HEIR OF THE ECLIPSE VANQUISHED',
+        'SOUL WEAPON, SPELL & ARMOR UNLOCKED IN RELIC ARMORY',
+        '#facc15'
+      );
+    }
+
+    // Damage Player Function (Checks Perfect Dodge i-frames, Timed Parry & Block)
+    function attemptDamagePlayer(dmg, attackOrigin, canBeParried = true) {
+      if (player.state === 'dead' || boss.state === 'dead') return;
+
+      // 1. Check Invulnerability Frames (Dodge Roll)
+      if (player.invulnTimer > 0) {
+        // Trigger PERFECT DODGE if dodged just as attack strikes!
+        if (player.invulnTimer > 0.16) {
+          sfx.playPerfectDodge();
+          slowMoTimer = 0.55;
+          player.stamina = Math.min(player.maxStamina, player.stamina + 35);
+          player.counterSurgeBuff = true;
+          document.getElementById('player-buff-pill').classList.remove('hidden');
+          spawnFloatingText(player.pos, 'PERFECT DODGE!', 'text-sky-300', 'text-xl');
+          spawnShockwaveRing(player.pos, 0x38bdf8, 4.5, 0.35);
+        }
+        return;
+      }
+
+      // 2. Check Timed Perfect Parry Window
+      if (canBeParried && player.parryWindowTimer > 0) {
+        sfx.playParryClang();
+        slowMoTimer = 0.45;
+        cameraShake = 0.45;
+        player.stamina = Math.min(player.maxStamina, player.stamina + 25);
+        spawnParticles(new THREE.Vector3(player.pos.x, 1.6, player.pos.z), 0xfacc15, 24, 9);
+        spawnShockwaveRing(player.pos, 0xfacc15, 6, 0.4);
+        spawnFloatingText(player.pos, 'PERFECT PARRY!', 'text-yellow-300', 'text-2xl');
+
+        // Inflict Massive Posture Damage to Boss
+        damageBoss(60, 48, 'parry');
+        if (boss.state !== 'staggered' && boss.state !== 'phase_transition' && boss.state !== 'dead') {
+          boss.state = 'recover';
+          boss.stateTimer = 1.1;
+        }
+        return;
+      }
+
+      // 3. Check Standard Guard / Block
+      if (player.state === 'block' && player.stamina >= 15) {
+        const blockedDmg = Math.round(dmg * 0.25);
+        player.hp = Math.max(0, player.hp - blockedDmg);
+        player.stamina = Math.max(0, player.stamina - 22);
+        sfx.playHitImpact(false);
+        spawnFloatingText(player.pos, `BLOCKED (-${blockedDmg})`, 'text-sky-200', 'text-sm');
+        updateHUD();
+        if (player.hp <= 0) handlePlayerDeath();
+        return;
+      }
+
+      // 4. Full Hit Taken
+      player.hp = Math.max(0, player.hp - dmg);
+      cameraShake = 0.4;
+      sfx.playHitImpact(true);
+      spawnParticles(new THREE.Vector3(player.pos.x, 1.5, player.pos.z), 0xdc2626, 16, 6);
+      spawnFloatingText(player.pos, `-${dmg}`, 'text-red-400', 'text-lg');
+
+      // Brief stagger reaction if not in hyperarmor
+      if (player.state !== 'heavy') {
+        player.state = 'stagger';
+        player.stateTimer = 0.32;
+      }
+
+      updateHUD();
+      if (player.hp <= 0) {
+        handlePlayerDeath();
+      }
+    }
+
+    function handlePlayerDeath() {
+      player.state = 'dead';
+      setTelegraphAlert(null);
+      showSoulsBanner('YOU DIED', 'RETURNING TO SANCTUM CHECKPOINT ALTAR...', '#ef4444');
+      setTimeout(() => {
+        startBossEncounter(boss.index);
+      }, 3100);
+    }
+
+    /********************************************************************
+     * 9. PLAYER ACTIONS: LIGHT COMBO, CHARGED HEAVY, DODGE, PARRY, SPELL, HEAL
+     ********************************************************************/
+    function triggerLightAttack() {
+      if (player.state === 'dead' || player.state === 'stagger') return;
+      if (player.state !== 'idle' && player.state !== 'move' && !(player.state === 'attack' && player.stateTimer < 0.14)) return;
+      if (player.stamina < 12) return;
+
+      player.stamina = Math.max(0, player.stamina - 12);
+      player.state = 'attack';
+      player.comboStep = (player.comboStep % 3) + 1;
+      player.stateTimer = 0.34 / currentWeapon.speed;
+      player.comboWindowTimer = 0.9;
+      player.hitCalculatedThisSwing = false;
+
+      // Face Boss if Locked On
+      if (isLockedOn && boss.state !== 'dead') {
+        player.yaw = Math.atan2(boss.pos.x - player.pos.x, boss.pos.z - player.pos.z);
+      }
+
+      sfx.playSlash(0.9 + player.comboStep * 0.12);
+      updateHUD();
+    }
+
+    function startChargingHeavy() {
+      if (player.state !== 'idle' && player.state !== 'move') return;
+      if (player.stamina < 24) return;
+      player.state = 'charge';
+      player.chargeTime = 0;
+      document.getElementById('charge-bar-wrap').classList.remove('hidden');
+    }
+
+    function releaseChargedHeavy() {
+      if (player.state !== 'charge') return;
+      document.getElementById('charge-bar-wrap').classList.add('hidden');
+      player.stamina = Math.max(0, player.stamina - 24);
+      player.state = 'heavy';
+      player.stateTimer = 0.46;
+      player.hitCalculatedThisSwing = false;
+
+      if (isLockedOn && boss.state !== 'dead') {
+        player.yaw = Math.atan2(boss.pos.x - player.pos.x, boss.pos.z - player.pos.z);
+      }
+      sfx.playSlash(0.68);
+      updateHUD();
+    }
+
+    function triggerDodgeRoll() {
+      if (player.state === 'dead' || player.state === 'dodge') return;
+      if (player.stamina < 16) return;
+      document.getElementById('charge-bar-wrap').classList.add('hidden');
+
+      player.stamina = Math.max(0, player.stamina - 16);
+      player.state = 'dodge';
+      player.stateTimer = 0.38;
+      player.invulnTimer = 0.32; // Generous i-frames for responsive Perfect Dodge
+
+      // Determine dodge direction from movement input or backward/forward
+      const moveVec = getMovementInputVector();
+      if (moveVec.lengthSq() > 0.01) {
+        player.yaw = Math.atan2(moveVec.x, moveVec.z);
+      }
+      sfx.playSlash(1.35);
+      spawnParticles(player.pos, 0x93c5fd, 8, 4, 0.12);
+      updateHUD();
+    }
+
+    function triggerParryOrBlock() {
+      if (player.state === 'dead' || player.state === 'dodge') return;
+      if (player.stamina < 10) return;
+      document.getElementById('charge-bar-wrap').classList.add('hidden');
+
+      player.state = 'block';
+      player.stateTimer = 0.45;
+      player.parryWindowTimer = 0.28; // Active Timed Parry window!
+      sfx.playSlash(1.5);
+    }
+
+    function triggerCastSpell() {
+      if (player.state === 'dead' || player.spellCooldown > 0) return;
+      if (player.stamina < currentSpell.stamCost) return;
+
+      player.stamina = Math.max(0, player.stamina - currentSpell.stamCost);
+      player.spellCooldown = currentSpell.cd;
+
+      if (isLockedOn && boss.state !== 'dead') {
+        player.yaw = Math.atan2(boss.pos.x - player.pos.x, boss.pos.z - player.pos.z);
+      }
+
+      sfx.playSpellCast();
+      const forward = new THREE.Vector3(Math.sin(player.yaw), 0, Math.cos(player.yaw));
+      const spawnOrigin = player.pos.clone().add(new THREE.Vector3(0, 1.5, 0)).addScaledVector(forward, 1.2);
+
+      if (currentSpell.id === 'arcane_lance') {
+        const mesh = new THREE.Mesh(
+          new THREE.ConeGeometry(0.28, 1.8, 8),
+          new THREE.MeshBasicMaterial({ color: currentSpell.color })
+        );
+        mesh.rotation.x = Math.PI / 2;
+        mesh.position.copy(spawnOrigin);
+        scene.add(mesh);
+        activeProjectiles.push({
+          mesh,
+          pos: spawnOrigin,
+          vel: forward.clone().multiplyScalar(28),
+          fromPlayer: true,
+          dmg: currentSpell.dmg,
+          poiseDmg: currentSpell.poiseDmg,
+          radius: 1.5,
+          age: 0,
+          maxLife: 2.2
+        });
+      } else if (currentSpell.id === 'molten_wave') {
+        // Erupts 4 traveling magma shockwaves toward boss
+        for (let i = 1; i <= 4; i++) {
+          setTimeout(() => {
+            const p = player.pos.clone().addScaledVector(forward, i * 3.4);
+            spawnShockwaveRing(p, 0xf97316, 3.6, 0.45);
+            spawnParticles(p, 0xf97316, 14, 7);
+            if (p.distanceTo(boss.pos) < 4.5) {
+              damageBoss(Math.round(currentSpell.dmg * 0.42), Math.round(currentSpell.poiseDmg * 0.42), 'spell');
+            }
+          }, i * 110);
+        }
+      } else if (currentSpell.id === 'starlight_barrage') {
+        // 5 Homing Starlight Orbs
+        for (let i = 0; i < 5; i++) {
+          const orb = new THREE.Mesh(
+            new THREE.OctahedronGeometry(0.26, 0),
+            new THREE.MeshBasicMaterial({ color: 0xc084fc })
+          );
+          const offset = new THREE.Vector3((i - 2) * 0.8, 2.2 + (i % 2) * 0.5, 0);
+          const startP = player.pos.clone().add(offset);
+          orb.position.copy(startP);
+          scene.add(orb);
+          activeProjectiles.push({
+            mesh: orb,
+            pos: startP,
+            vel: forward.clone().multiplyScalar(18),
+            homing: true,
+            fromPlayer: true,
+            dmg: Math.round(currentSpell.dmg / 4.2),
+            poiseDmg: Math.round(currentSpell.poiseDmg / 4.2),
+            radius: 1.4,
+            age: 0,
+            maxLife: 3.0
+          });
+        }
+      } else if (currentSpell.id === 'shadowflame_surge') {
+        // Wide Abyssal Flame Cone
+        spawnShockwaveRing(player.pos.clone().addScaledVector(forward, 3.5), 0xe11d48, 6.5, 0.5);
+        spawnParticles(player.pos.clone().addScaledVector(forward, 3.5), 0xe11d48, 30, 10, 0.24);
+        if (player.pos.distanceTo(boss.pos) < 8.5) {
+          damageBoss(currentSpell.dmg, currentSpell.poiseDmg, 'spell');
+        }
+      }
+
+      updateHUD();
+    }
+
+    function triggerFlaskHeal() {
+      if (player.state === 'dead' || player.flasks <= 0 || player.hp >= player.maxHp) return;
+      player.flasks--;
+      const healAmt = Math.round(player.maxHp * 0.45);
+      player.hp = Math.min(player.maxHp, player.hp + healAmt);
+      sfx.playHeal();
+      spawnParticles(player.pos, 0x34d399, 22, 6, 0.16);
+      spawnShockwaveRing(player.pos, 0x34d399, 3.5, 0.45);
+      spawnFloatingText(player.pos, `+${healAmt} HP`, 'text-emerald-300', 'text-lg');
+      updateHUD();
+    }
+
+    /********************************************************************
+     * 10. BOSS AI DECISION ENGINE & TELEGRAPHED ATTACK PATTERNS
+     ********************************************************************/
+    function updateBossAI(dt) {
+      if (boss.state === 'dead') {
+        boss.group.position.y = Math.max(-3.5, boss.group.position.y - dt * 1.4);
+        return;
+      }
+
+      if (boss.state === 'phase_transition' || boss.state === 'staggered') {
+        boss.stateTimer -= dt;
+        if (boss.state === 'staggered') {
+          boss.parts.rig.position.y = -0.55;
+          boss.parts.rig.rotation.x = 0.28;
+        }
+        if (boss.stateTimer <= 0) {
+          boss.parts.rig.position.y = 0;
+          boss.parts.rig.rotation.x = 0;
+          boss.state = 'idle';
+          boss.aiCooldown = 0.6;
+        }
+        return;
+      }
+
+      const toPlayer = new THREE.Vector3().subVectors(player.pos, boss.pos);
+      const dist = toPlayer.length();
+      const targetYaw = Math.atan2(toPlayer.x, toPlayer.z);
+
+      // Track player proximity/positioning to punish predictable habits
+      if (dist < 4.2) boss.closeRangeTimer += dt;
+      else boss.closeRangeTimer = Math.max(0, boss.closeRangeTimer - dt);
+
+      const bossForward = new THREE.Vector3(Math.sin(boss.yaw), 0, Math.cos(boss.yaw));
+      if (toPlayer.clone().normalize().dot(bossForward) < -0.25) {
+        boss.behindBossTimer += dt;
+      } else {
+        boss.behindBossTimer = 0;
+      }
+
+      if (boss.state === 'idle' || boss.state === 'move') {
+        // Smoothly rotate toward player
+        const angleDiff = Math.atan2(Math.sin(targetYaw - boss.yaw), Math.cos(targetYaw - boss.yaw));
+        boss.yaw += angleDiff * Math.min(1, dt * 4.5);
+
+        // Approach or maintain optimal combat spacing
+        const desiredDist = boss.index === 1 ? 11.5 : 4.6;
+        if (dist > desiredDist) {
+          boss.state = 'move';
+          const moveSpeed = (boss.phase === 2 ? 6.8 : 5.2);
+          boss.pos.addScaledVector(bossForward, moveSpeed * dt);
+        } else {
+          boss.state = 'idle';
+        }
+
+        boss.aiCooldown -= dt;
+        if (boss.aiCooldown <= 0) {
+          chooseNextBossAttack(dist);
+        }
+      } else if (boss.state === 'windup') {
+        boss.stateTimer -= dt;
+        // Slight tracking during early windup
+        if (boss.stateTimer > 0.35) {
+          const angleDiff = Math.atan2(Math.sin(targetYaw - boss.yaw), Math.cos(targetYaw - boss.yaw));
+          boss.yaw += angleDiff * dt * 2.5;
+        }
+        if (boss.stateTimer <= 0) {
+          executeBossStrike();
+        }
+      } else if (boss.state === 'strike') {
+        boss.stateTimer -= dt;
+        if (boss.stateTimer <= 0) {
+          boss.state = 'recover';
+          boss.stateTimer = boss.phase === 2 ? 0.75 : 1.05;
+          boss.coreWeaknessExposed = true;
+          setTelegraphAlert(null);
+        }
+      } else if (boss.state === 'recover') {
+        boss.stateTimer -= dt;
+        if (boss.stateTimer <= 0) {
+          boss.coreWeaknessExposed = false;
+          boss.state = 'idle';
+          boss.aiCooldown = boss.phase === 2 ? 0.75 : 1.15;
+        }
+      }
+
+      // Clamp boss inside cathedral arena
+      if (boss.pos.length() > ARENA_RADIUS - 2.5) {
+        boss.pos.setLength(ARENA_RADIUS - 2.5);
+      }
+      boss.group.position.copy(boss.pos);
+      boss.group.rotation.y = boss.yaw;
+    }
+
+    function chooseNextBossAttack(dist) {
+      boss.hitDealtThisAttack = false;
+      const speedMult = boss.phase === 2 ? 0.82 : 1.0;
+
+      if (boss.index === 0) {
+        // VAELGOR ATTACKS
+        if (boss.closeRangeTimer > 1.5 && dist < 4.5) {
+          // Punish hugging close: Shield Bash Shockwave
+          boss.currentAttack = 'shield_bash';
+          boss.state = 'windup';
+          boss.stateTimer = 0.65 * speedMult;
+          boss.closeRangeTimer = 0;
+          setTelegraphAlert('SHIELD BASH — DODGE BACK OR PARRY [Q]!');
+        } else if (boss.phase === 2 && Math.random() < 0.42) {
+          // Phase 2 Volcanic Leap Slam
+          boss.currentAttack = 'leap_slam';
+          boss.state = 'windup';
+          boss.stateTimer = 0.95 * speedMult;
+          setTelegraphAlert('EMBER LEAP SLAM — DODGE IMPACT ZONE!');
+          spawnGroundTelegraph(player.pos, 5.2, 0.95 * speedMult, 0xf97316, (impactPos) => {
+            spawnShockwaveRing(impactPos, 0xf97316, 7.5, 0.5);
+            spawnParticles(impactPos, 0xf97316, 26, 10);
+            if (player.pos.distanceTo(impactPos) < 5.2) {
+              attemptDamagePlayer(240, impactPos, false);
+            }
+          });
+        } else if (Math.random() < 0.5) {
+          // Sweeping Greatsword Cleave (Parryable!)
+          boss.currentAttack = 'cleave';
+          boss.state = 'windup';
+          boss.stateTimer = 0.78 * speedMult;
+          setTelegraphAlert('COLOSSAL CLEAVE — TIMED PARRY [Q] OR DODGE!');
+        } else {
+          // Heavy Overhead Slam (Exposes his Back afterward!)
+          boss.currentAttack = 'overhead_slam';
+          boss.state = 'windup';
+          boss.stateTimer = 0.9 * speedMult;
+          setTelegraphAlert('OVERHEAD SLAM — DODGE & STRIKE EXPOSED BACK!');
+        }
+
+      } else if (boss.index === 1) {
+        // SERAPHINA ATTACKS
+        if (dist < 5.0 && Math.random() < 0.55) {
+          // Blink Teleport + Gravity Well Punish
+          boss.currentAttack = 'gravity_blink';
+          boss.state = 'windup';
+          boss.stateTimer = 0.6 * speedMult;
+          setTelegraphAlert('GRAVITY WELL — EVADE DARK SINGULARITY!');
+          spawnGroundTelegraph(boss.pos, 5.0, 0.65, 0xa855f7, (p) => {
+            spawnShockwaveRing(p, 0xa855f7, 6.5, 0.45);
+            if (player.pos.distanceTo(p) < 5.0) attemptDamagePlayer(185, p, false);
+          });
+        } else if (Math.random() < 0.5) {
+          // Chanted Astral Beam (Weakness: Interrupt with Spell [E] or Heavy!)
+          boss.currentAttack = 'chanted_beam';
+          boss.state = 'windup';
+          boss.stateTimer = 1.25 * speedMult;
+          boss.isChannelingWeakness = true;
+          if (boss.parts.barrier) boss.parts.barrier.material.opacity = 0.45;
+          setTelegraphAlert('ASTRAL CHANT — INTERRUPT WITH SPELL [E] OR DODGE!');
+        } else {
+          // Homing Starlight Orbs + Phase 2 Eclipse Meteors
+          boss.currentAttack = 'star_orbs';
+          boss.state = 'windup';
+          boss.stateTimer = 0.75 * speedMult;
+          setTelegraphAlert('CELESTIAL BARRAGE — DODGE PROJECTILES!');
+        }
+
+      } else {
+        // MALAKOR SHADOW DRAGON ATTACKS
+        if (boss.behindBossTimer > 1.1 && dist < 6.5) {
+          // Punish staying behind dragon: 360 Tail Whip
+          boss.currentAttack = 'tail_whip';
+          boss.state = 'windup';
+          boss.stateTimer = 0.68 * speedMult;
+          boss.behindBossTimer = 0;
+          setTelegraphAlert('TAIL WHIP PUNISH — TIMED PARRY [Q] OR ROLL!');
+        } else if (boss.phase === 2 && Math.random() < 0.42) {
+          // Phase 2 Skyward Dive-Bomb
+          boss.currentAttack = 'dive_bomb';
+          boss.state = 'windup';
+          boss.stateTimer = 1.1 * speedMult;
+          setTelegraphAlert('ABYSSAL DIVE-BOMB — EVADE RED IMPACT ZONE!');
+          spawnGroundTelegraph(player.pos, 6.2, 1.1 * speedMult, 0xe11d48, (impactPos) => {
+            spawnShockwaveRing(impactPos, 0xe11d48, 9.5, 0.6);
+            spawnParticles(impactPos, 0xe11d48, 32, 12);
+            cameraShake = 0.55;
+            if (player.pos.distanceTo(impactPos) < 6.2) {
+              attemptDamagePlayer(275, impactPos, false);
+            }
+          });
+        } else if (Math.random() < 0.52) {
+          // Shadow-Flame Breath Sweep
+          boss.currentAttack = 'breath_sweep';
+          boss.state = 'windup';
+          boss.stateTimer = 0.92 * speedMult;
+          setTelegraphAlert('SHADOW-FLAME BREATH — FLANK & STRIKE CHEST CORE!');
+        } else {
+          // Lunging Claw Rend
+          boss.currentAttack = 'claw_rend';
+          boss.state = 'windup';
+          boss.stateTimer = 0.72 * speedMult;
+          setTelegraphAlert('DRAGON CLAW REND — PARRY [Q] OR PERFECT DODGE!');
+        }
+      }
+    }
+
+    function executeBossStrike() {
+      boss.state = 'strike';
+      boss.stateTimer = 0.36;
+      boss.isChannelingWeakness = false;
+      if (boss.parts.barrier) boss.parts.barrier.material.opacity = 0;
+
+      const forward = new THREE.Vector3(Math.sin(boss.yaw), 0, Math.cos(boss.yaw));
+      const dist = boss.pos.distanceTo(player.pos);
+
+      if (boss.index === 0) {
+        // Vaelgor Strikes
+        sfx.playSlash(0.6);
+        if (boss.currentAttack === 'leap_slam') {
+          boss.pos.lerp(player.pos, 0.72);
+        } else if (boss.currentAttack === 'cleave' || boss.currentAttack === 'overhead_slam' || boss.currentAttack === 'shield_bash') {
+          boss.pos.addScaledVector(forward, 1.8);
+          const hitRange = boss.currentAttack === 'shield_bash' ? 4.8 : 5.8;
+          const hitPos = boss.pos.clone().addScaledVector(forward, 2.4);
+          spawnShockwaveRing(hitPos, 0xf97316, 4.5, 0.35);
+
+          if (dist < hitRange) {
+            const dmg = boss.currentAttack === 'overhead_slam' ? 225 : 175;
+            attemptDamagePlayer(dmg, boss.pos, true);
+          }
+
+          // Phase 2 adds a traveling magma wave on overhead slams
+          if (boss.phase === 2 && boss.currentAttack === 'overhead_slam') {
+            const projMesh = new THREE.Mesh(
+              new THREE.BoxGeometry(2.2, 1.2, 0.6),
+              new THREE.MeshBasicMaterial({ color: 0xf97316 })
+            );
+            projMesh.position.copy(hitPos).setY(0.8);
+            projMesh.rotation.y = boss.yaw;
+            scene.add(projMesh);
+            activeProjectiles.push({
+              mesh: projMesh,
+              pos: projMesh.position.clone(),
+              vel: forward.clone().multiplyScalar(22),
+              fromPlayer: false,
+              dmg: 165,
+              radius: 1.8,
+              age: 0,
+              maxLife: 2.0
+            });
+          }
+        }
+
+      } else if (boss.index === 1) {
+        // Seraphina Strikes
+        sfx.playSpellCast();
+        if (boss.currentAttack === 'gravity_blink') {
+          // Teleport across the arena
+          const angle = Math.random() * Math.PI * 2;
+          boss.pos.set(Math.cos(angle) * 12, 0, Math.sin(angle) * 12);
+          spawnShockwaveRing(boss.pos, 0xc084fc, 5, 0.4);
+        } else if (boss.currentAttack === 'chanted_beam') {
+          // High-speed Astral Beam + Meteor Ring in Phase 2
+          for (let i = -1; i <= 1; i++) {
+            const dir = forward.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), i * 0.16);
+            const beamOrb = new THREE.Mesh(
+              new THREE.SphereGeometry(0.55, 12, 12),
+              new THREE.MeshBasicMaterial({ color: 0xf43f5e })
+            );
+            const start = boss.pos.clone().add(new THREE.Vector3(0, 2.2, 0));
+            beamOrb.position.copy(start);
+            scene.add(beamOrb);
+            activeProjectiles.push({
+              mesh: beamOrb,
+              pos: start,
+              vel: dir.multiplyScalar(27),
+              fromPlayer: false,
+              dmg: 190,
+              radius: 1.5,
+              age: 0,
+              maxLife: 2.2
+            });
+          }
+        } else if (boss.currentAttack === 'star_orbs') {
+          const count = boss.phase === 2 ? 5 : 3;
+          for (let i = 0; i < count; i++) {
+            const spread = (i - (count - 1) / 2) * 0.25;
+            const dir = forward.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), spread);
+            const orb = new THREE.Mesh(
+              new THREE.OctahedronGeometry(0.42, 0),
+              new THREE.MeshBasicMaterial({ color: 0xc084fc })
+            );
+            const start = boss.pos.clone().add(new THREE.Vector3(0, 2.0, 0));
+            orb.position.copy(start);
+            scene.add(orb);
+            activeProjectiles.push({
+              mesh: orb,
+              pos: start,
+              vel: dir.multiplyScalar(19),
+              fromPlayer: false,
+              dmg: 145,
+              radius: 1.3,
+              age: 0,
+              maxLife: 2.8
+            });
+          }
+        }
+
+      } else {
+        // Malakor Strikes
+        if (boss.currentAttack === 'dive_bomb') {
+          boss.pos.lerp(player.pos, 0.78);
+        } else if (boss.currentAttack === 'tail_whip') {
+          sfx.playSlash(0.55);
+          spawnShockwaveRing(boss.pos, 0xe11d48, 6.5, 0.4);
+          if (dist < 6.4) {
+            attemptDamagePlayer(195, boss.pos, true);
+          }
+        } else if (boss.currentAttack === 'claw_rend') {
+          sfx.playSlash(0.65);
+          boss.pos.addScaledVector(forward, 2.2);
+          if (dist < 6.0) {
+            attemptDamagePlayer(205, boss.pos, true);
+          }
+        } else if (boss.currentAttack === 'breath_sweep') {
+          sfx.playBossRoar();
+          // Fan of 5 shadow-flame fireballs
+          for (let i = -2; i <= 2; i++) {
+            const dir = forward.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), i * 0.2);
+            const flame = new THREE.Mesh(
+              new THREE.DodecahedronGeometry(0.55, 0),
+              new THREE.MeshBasicMaterial({ color: 0xe11d48 })
+            );
+            const start = boss.pos.clone().add(new THREE.Vector3(0, 2.2, 0)).addScaledVector(forward, 2.2);
+            flame.position.copy(start);
+            scene.add(flame);
+            activeProjectiles.push({
+              mesh: flame,
+              pos: start,
+              vel: dir.multiplyScalar(21),
+              fromPlayer: false,
+              dmg: 165,
+              radius: 1.5,
+              age: 0,
+              maxLife: 1.9
+            });
+          }
+        }
+      }
+    }
+
+    /********************************************************************
+     * 11. INPUT HANDLING (VIRTUAL JOYSTICK, KEYBOARD, MOUSE & HUD)
+     ********************************************************************/
+    const keys = {};
+    let isLockedOn = true;
+    let camOrbitYaw = 0;
+    let camOrbitPitch = 0.38;
+    let isDraggingMouse = false;
+    let prevMouse = { x: 0, y: 0 };
+
+    // --- VIRTUAL ANALOG MOVEMENT JOYSTICK ENGINE ---
+    const joystickState = {
+      active: false,
+      pointerId: null,
+      startX: 0,
+      startY: 0,
+      currentX: 0,
+      currentY: 0,
+      vector: { x: 0, z: 0 },
+      maxRadius: 42
+    };
+
+    const joystickBase = document.getElementById('joystick-base');
+    const joystickKnob = document.getElementById('joystick-knob');
+
+    function updateJoystickVisual(dx, dy) {
+      if (!joystickKnob) return;
+      joystickKnob.style.transform = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px)`;
+    }
+
+    function handleJoystickPointerDown(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = joystickBase.getBoundingClientRect();
+      joystickState.active = true;
+      joystickState.pointerId = e.pointerId !== undefined ? e.pointerId : null;
+      joystickState.startX = rect.left + rect.width / 2;
+      joystickState.startY = rect.top + rect.height / 2;
+      if (joystickBase.setPointerCapture && e.pointerId !== undefined) {
+        try { joystickBase.setPointerCapture(e.pointerId); } catch (_) {}
+      }
+      handleJoystickPointerMove(e);
+    }
+
+    function handleJoystickPointerMove(e) {
+      if (!joystickState.active) return;
+      if (joystickState.pointerId !== null && e.pointerId !== undefined && e.pointerId !== joystickState.pointerId) return;
+
+      const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : joystickState.startX);
+      const clientY = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : joystickState.startY);
+
+      const dx = clientX - joystickState.startX;
+      const dy = clientY - joystickState.startY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const angle = Math.atan2(dy, dx);
+      const clampedDist = Math.min(dist, joystickState.maxRadius);
+
+      const knobX = Math.cos(angle) * clampedDist;
+      const knobY = Math.sin(angle) * clampedDist;
+
+      joystickState.currentX = knobX;
+      joystickState.currentY = knobY;
+      joystickState.vector.x = knobX / joystickState.maxRadius;
+      joystickState.vector.z = knobY / joystickState.maxRadius;
+
+      updateJoystickVisual(knobX, knobY);
+    }
+
+    function handleJoystickPointerUp(e) {
+      if (joystickState.pointerId !== null && e.pointerId !== undefined && e.pointerId !== joystickState.pointerId) return;
+      joystickState.active = false;
+      joystickState.pointerId = null;
+      joystickState.currentX = 0;
+      joystickState.currentY = 0;
+      joystickState.vector.x = 0;
+      joystickState.vector.z = 0;
+      updateJoystickVisual(0, 0);
+    }
+
+    if (joystickBase) {
+      joystickBase.addEventListener('pointerdown', handleJoystickPointerDown);
+      window.addEventListener('pointermove', handleJoystickPointerMove);
+      window.addEventListener('pointerup', handleJoystickPointerUp);
+      window.addEventListener('pointercancel', handleJoystickPointerUp);
+
+      // Touch fallbacks for mobile / tablet webviews
+      joystickBase.addEventListener('touchstart', (e) => {
+        if (e.touches.length > 0) handleJoystickPointerDown(e.touches[0]);
+      }, { passive: false });
+      window.addEventListener('touchmove', (e) => {
+        if (joystickState.active && e.touches.length > 0) handleJoystickPointerMove(e.touches[0]);
+      }, { passive: false });
+      window.addEventListener('touchend', handleJoystickPointerUp, { passive: true });
+      window.addEventListener('touchcancel', handleJoystickPointerUp, { passive: true });
+    }
+
+    window.addEventListener('keydown', (e) => {
+      const k = e.key.toLowerCase();
+      keys[k] = true;
+
+      if (k === ' ' || k === 'shift') {
+        e.preventDefault();
+        triggerDodgeRoll();
+      } else if (k === 'j') {
+        triggerLightAttack();
+      } else if (k === 'k' && player.state !== 'charge') {
+        startChargingHeavy();
+      } else if (k === 'q' || k === 'f') {
+        triggerParryOrBlock();
+      } else if (k === 'e' || k === '1') {
+        triggerCastSpell();
+      } else if (k === 'r' || k === '2') {
+        triggerFlaskHeal();
+      } else if (k === 'tab') {
+        e.preventDefault();
+        toggleLockOn();
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      const k = e.key.toLowerCase();
+      keys[k] = false;
+      if (k === 'k' && player.state === 'charge') {
+        releaseChargedHeavy();
+      }
+    });
+
+    const canvasElem = renderer.domElement;
+    canvasElem.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    canvasElem.addEventListener('pointerdown', (e) => {
+      if (e.button === 0) {
+        triggerLightAttack();
+      } else if (e.button === 2) {
+        startChargingHeavy();
+      } else if (e.button === 1) {
+        e.preventDefault();
+        toggleLockOn();
+      }
+      isDraggingMouse = true;
+      prevMouse = { x: e.clientX, y: e.clientY };
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      if (!isDraggingMouse) return;
+      const dx = e.clientX - prevMouse.x;
+      const dy = e.clientY - prevMouse.y;
+      if (!isLockedOn) {
+        camOrbitYaw -= dx * 0.006;
+      }
+      camOrbitPitch = Math.max(0.18, Math.min(0.85, camOrbitPitch + dy * 0.004));
+      prevMouse = { x: e.clientX, y: e.clientY };
+    });
+
+    window.addEventListener('pointerup', (e) => {
+      isDraggingMouse = false;
+      if (e.button === 2 && player.state === 'charge') {
+        releaseChargedHeavy();
+      }
+    });
+
+    // Interactive Mouse Wheel Scrolling (Smooth Camera Distance & Moving Scrollbar Track)
+    let userCamDist = 11.2;
+
+    window.addEventListener('wheel', (e) => {
+      userCamDist = Math.max(6.5, Math.min(22.0, userCamDist + e.deltaY * 0.012));
+      updateMovingScrollbarThumb();
+    }, { passive: true });
+
+    function getMovementInputVector() {
+      let ix = 0;
+      let iz = 0;
+
+      // Keyboard input
+      let keyX = 0;
+      let keyZ = 0;
+      if (keys['w'] || keys['arrowup']) keyZ -= 1;
+      if (keys['s'] || keys['arrowdown']) keyZ += 1;
+      if (keys['a'] || keys['arrowleft']) keyX -= 1;
+      if (keys['d'] || keys['arrowright']) keyX += 1;
+
+      // Visual feedback: deflect joystick knob if joystick isn't actively being dragged
+      if (!joystickState.active) {
+        if (keyX !== 0 || keyZ !== 0) {
+          const keyLen = Math.sqrt(keyX * keyX + keyZ * keyZ);
+          const normKeyX = keyX / keyLen;
+          const normKeyZ = keyZ / keyLen;
+          updateJoystickVisual(normKeyX * joystickState.maxRadius * 0.85, normKeyZ * joystickState.maxRadius * 0.85);
+        } else {
+          updateJoystickVisual(0, 0);
+        }
+      }
+
+      // Prioritize active analog joystick dragging or fall back to keyboard
+      if (joystickState.active && (Math.abs(joystickState.vector.x) > 0.05 || Math.abs(joystickState.vector.z) > 0.05)) {
+        ix = joystickState.vector.x;
+        iz = joystickState.vector.z;
+      } else {
+        ix = keyX;
+        iz = keyZ;
+      }
+
+      const inputLen = Math.sqrt(ix * ix + iz * iz);
+      const vec = new THREE.Vector3(ix, 0, iz);
+      if (inputLen > 0.01) {
+        const mag = Math.min(1.0, inputLen);
+        vec.normalize().multiplyScalar(mag);
+
+        // Rotate input relative to camera horizontal orientation
+        const camForward = new THREE.Vector3();
+        camera.getWorldDirection(camForward);
+        const camAngle = Math.atan2(camForward.x, camForward.z) + Math.PI;
+        vec.applyAxisAngle(new THREE.Vector3(0, 1, 0), camAngle);
+      } else {
+        vec.set(0, 0, 0);
+      }
+      return vec;
+    }
+
+    function toggleLockOn() {
+      isLockedOn = !isLockedOn;
+      document.getElementById('label-lockon').textContent = `Lock-On: ${isLockedOn ? 'ON' : 'OFF'}`;
+    }
+
+    /********************************************************************
+     * 12. HUD UPDATES & SANCTUM ARMORY MODAL LOGIC
+     ********************************************************************/
+    function updateHUD() {
+      // Player HP & Stamina
+      const hpPct = Math.max(0, (player.hp / player.maxHp) * 100);
+      document.getElementById('player-hp-fill').style.width = `${hpPct}%`;
+      document.getElementById('player-hp-trail').style.width = `${hpPct}%`;
+      document.getElementById('player-hp-text').textContent = `${Math.ceil(player.hp)} / ${player.maxHp}`;
+
+      const stamPct = Math.max(0, (player.stamina / player.maxStamina) * 100);
+      document.getElementById('player-stam-fill').style.width = `${stamPct}%`;
+      document.getElementById('player-stam-text').textContent = `${Math.floor(stamPct)}%`;
+
+      // Flasks & Equipped Loadout Icons
+      document.getElementById('flask-count').textContent = player.flasks;
+      document.getElementById('spell-icon').textContent = currentSpell.icon;
+      document.getElementById('spell-name-short').textContent = currentSpell.short;
+      document.getElementById('weapon-icon').textContent = currentWeapon.icon;
+      document.getElementById('weapon-name-short').textContent = currentWeapon.short;
+
+      // Low HP Crimson Vignette
+      const screenFx = document.getElementById('screen-fx');
+      if (slowMoTimer > 0) {
+        screenFx.style.boxShadow = 'inset 0 0 90px rgba(56, 189, 248, 0.45)';
+      } else if (hpPct < 30) {
+        screenFx.style.boxShadow = 'inset 0 0 85px rgba(220, 38, 38, 0.55)';
+      } else {
+        screenFx.style.boxShadow = 'none';
+      }
+
+      // Boss HP & Posture
+      const bossHpPct = Math.max(0, (boss.hp / boss.maxHp) * 100);
+      document.getElementById('boss-hp-fill').style.width = `${bossHpPct}%`;
+      document.getElementById('boss-hp-trail').style.width = `${bossHpPct}%`;
+      document.getElementById('boss-hp-numbers').textContent = `${Math.ceil(boss.hp)} / ${boss.maxHp}`;
+
+      const posturePct = Math.min(100, (boss.posture / boss.maxPosture) * 100);
+      document.getElementById('boss-posture-fill').style.width = `${posturePct}%`;
+    }
+
+    function updateProgressionBadges() {
+      defeatedBosses.forEach((done, idx) => {
+        const badge = document.getElementById(`badge-boss-${idx}`);
+        const cardStatus = document.getElementById(`card-status-${idx}`);
+        if (done) {
+          badge.className = 'px-2 py-0.5 rounded bg-amber-500/25 border border-amber-400 text-amber-200 font-bold';
+          if (cardStatus) {
+            cardStatus.textContent = '✓ Vanquished';
+            cardStatus.className = 'text-[11px] font-bold text-emerald-400';
+          }
+        }
+      });
+    }
+
+    function renderArmoryModal() {
+      const wList = document.getElementById('armory-weapons-list');
+      const sList = document.getElementById('armory-spells-list');
+      const aList = document.getElementById('armory-armors-list');
+
+      wList.innerHTML = WEAPONS.map(w => {
+        const active = currentWeapon.id === w.id;
+        return `
+          <div class="p-3 rounded-xl border ${active ? 'bg-amber-500/20 border-amber-400' : 'bg-white/[0.03] border-white/10'} flex flex-col gap-1.5">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-xs text-white">${w.icon} ${w.name}</span>
+              <span class="font-mono-num text-[11px] text-amber-300">DMG ${w.dmg}</span>
+            </div>
+            <p class="text-[11px] text-stone-400">${w.desc}</p>
+            <button data-equip-weapon="${w.id}" ${!w.unlocked ? 'disabled' : ''} class="sanctum-btn w-full mt-1 ${active ? 'sanctum-btn-gold' : ''} ${!w.unlocked ? 'opacity-40 cursor-not-allowed' : ''}">
+              ${active ? '✓ Equipped' : (w.unlocked ? 'Equip Weapon' : '🔒 Defeat Boss to Unlock')}
+            </button>
+          </div>
+        `;
+      }).join('');
+
+      sList.innerHTML = SPELLS.map(s => {
+        const active = currentSpell.id === s.id;
+        return `
+          <div class="p-3 rounded-xl border ${active ? 'bg-purple-500/20 border-purple-400' : 'bg-white/[0.03] border-white/10'} flex flex-col gap-1.5">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-xs text-white">${s.icon} ${s.name}</span>
+              <span class="font-mono-num text-[11px] text-purple-300">PWR ${s.dmg}</span>
+            </div>
+            <p class="text-[11px] text-stone-400">${s.desc}</p>
+            <button data-equip-spell="${s.id}" ${!s.unlocked ? 'disabled' : ''} class="sanctum-btn w-full mt-1 ${active ? 'sanctum-btn-gold' : ''} ${!s.unlocked ? 'opacity-40 cursor-not-allowed' : ''}">
+              ${active ? '✓ Equipped' : (s.unlocked ? 'Equip Spell' : '🔒 Defeat Boss to Unlock')}
+            </button>
+          </div>
+        `;
+      }).join('');
+
+      aList.innerHTML = ARMORS.map(a => {
+        const active = currentArmor.id === a.id;
+        return `
+          <div class="p-3 rounded-xl border ${active ? 'bg-sky-500/20 border-sky-400' : 'bg-white/[0.03] border-white/10'} flex flex-col gap-1.5">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-xs text-white">${a.icon} ${a.name}</span>
+              <span class="text-[10px] text-sky-300 uppercase">Cosmetic</span>
+            </div>
+            <p class="text-[11px] text-stone-400">${a.desc}</p>
+            <button data-equip-armor="${a.id}" ${!a.unlocked ? 'disabled' : ''} class="sanctum-btn w-full mt-1 ${active ? 'sanctum-btn-gold' : ''} ${!a.unlocked ? 'opacity-40 cursor-not-allowed' : ''}">
+              ${active ? '✓ Equipped' : (a.unlocked ? 'Don Armor' : '🔒 Defeat Boss to Unlock')}
+            </button>
+          </div>
+        `;
+      }).join('');
+
+      wList.querySelectorAll('[data-equip-weapon]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const found = WEAPONS.find(x => x.id === btn.getAttribute('data-equip-weapon'));
+          if (found && found.unlocked) {
+            currentWeapon = found;
+            buildPlayerMesh();
+            updateHUD();
+            renderArmoryModal();
+            sfx.playParryClang();
+          }
+        });
+      });
+
+      sList.querySelectorAll('[data-equip-spell]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const found = SPELLS.find(x => x.id === btn.getAttribute('data-equip-spell'));
+          if (found && found.unlocked) {
+            currentSpell = found;
+            updateHUD();
+            renderArmoryModal();
+            sfx.playSpellCast();
+          }
+        });
+      });
+
+      aList.querySelectorAll('[data-equip-armor]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const found = ARMORS.find(x => x.id === btn.getAttribute('data-equip-armor'));
+          if (found && found.unlocked) {
+            currentArmor = found;
+            buildPlayerMesh();
+            renderArmoryModal();
+            sfx.playHeal();
+          }
+        });
+      });
+    }
+
+    // Bind Top Navigation & Quick-Action Buttons
+    document.getElementById('btn-boss-select').addEventListener('click', () => {
+      updateProgressionBadges();
+      document.getElementById('modal-boss-select').classList.remove('hidden');
+    });
+    document.getElementById('close-boss-select').addEventListener('click', () => {
+      document.getElementById('modal-boss-select').classList.add('hidden');
+    });
+
+    document.querySelectorAll('.select-boss-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.getAttribute('data-boss-idx'), 10);
+        document.getElementById('modal-boss-select').classList.add('hidden');
+        startBossEncounter(idx);
+      });
+    });
+
+    document.getElementById('btn-armory').addEventListener('click', () => {
+      document.getElementById('armory-unlock-badge').classList.add('hidden');
+      renderArmoryModal();
+      document.getElementById('modal-armory').classList.remove('hidden');
+    });
+    document.getElementById('close-armory').addEventListener('click', () => {
+      document.getElementById('modal-armory').classList.add('hidden');
+    });
+
+    document.getElementById('btn-unlock-all').addEventListener('click', () => {
+      WEAPONS.forEach(w => w.unlocked = true);
+      SPELLS.forEach(s => s.unlocked = true);
+      ARMORS.forEach(a => a.unlocked = true);
+      sfx.playHeal();
+      renderArmoryModal();
+    });
+
+    document.getElementById('btn-lockon').addEventListener('click', toggleLockOn);
+    document.getElementById('btn-restart').addEventListener('click', () => startBossEncounter(boss.index));
+
+    document.getElementById('btn-audio').addEventListener('click', () => {
+      sfx.enabled = !sfx.enabled;
+      document.getElementById('icon-audio').textContent = sfx.enabled ? '🔊' : '🔇';
+    });
+
+    document.getElementById('btn-controls').addEventListener('click', () => {
+      document.getElementById('modal-controls').classList.remove('hidden');
+    });
+    document.getElementById('close-controls').addEventListener('click', () => {
+      document.getElementById('modal-controls').classList.add('hidden');
+    });
+
+    // Bottom Quick Slot Clicks
+    document.getElementById('slot-heal').addEventListener('click', triggerFlaskHeal);
+    document.getElementById('slot-spell').addEventListener('click', triggerCastSpell);
+    document.getElementById('slot-attack').addEventListener('click', triggerLightAttack);
+    document.getElementById('slot-parry').addEventListener('click', triggerParryOrBlock);
+    document.getElementById('slot-dodge').addEventListener('click', triggerDodgeRoll);
+    document.getElementById('slot-heavy').addEventListener('click', () => {
+      startChargingHeavy();
+      setTimeout(releaseChargedHeavy, 360);
+    });
+
+    // --- 12B. TICKER & SCROLLBAR (CLEANED UP TO PREVENT BLOCKING) ---
+    function updateMovingScrollbarUI(bossIdx = boss.index) {}
+    function updateMovingScrollbarThumb() {}
+
+    /********************************************************************
+     * 13. MAIN REAL-TIME GAME LOOP
+     ********************************************************************/
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const rawDt = Math.min(clock.getDelta(), 0.05);
+      const elapsedTime = clock.getElapsedTime();
+
+      // Perfect Dodge / Parry Slow-Mo Bullet Time
+      if (slowMoTimer > 0) {
+        slowMoTimer -= rawDt;
+        timeScale = 0.35;
+      } else {
+        timeScale = 1.0;
+      }
+      const dt = rawDt * timeScale;
+
+      // 1. Animate Environment: Floating Platforms, Swirling Cloud Sea & Drifting Embers
+      floatingPlatforms.forEach(p => {
+        p.mesh.position.y = p.baseY + Math.sin(elapsedTime * p.speed + p.phase) * 0.9;
+      });
+      cloudPuffs.forEach(c => {
+        c.angle += c.speed * rawDt;
+        c.mesh.position.x = Math.cos(c.angle) * c.radius;
+        c.mesh.position.z = Math.sin(c.angle) * c.radius;
+      });
+      const ePos = emberPoints.geometry.attributes.position;
+      for (let i = 0; i < emberCount; i++) {
+        let y = ePos.getY(i) + rawDt * 1.1;
+        if (y > 24) y = 0;
+        ePos.setY(i, y);
+      }
+      ePos.needsUpdate = true;
+
+      // 2. Update Player Timers, Locomotion & Procedural Limb Animations
+      if (player.invulnTimer > 0) player.invulnTimer -= rawDt;
+      if (player.parryWindowTimer > 0) player.parryWindowTimer -= rawDt;
+      if (player.comboWindowTimer > 0) {
+        player.comboWindowTimer -= rawDt;
+        if (player.comboWindowTimer <= 0) player.comboStep = 0;
+      }
+
+      if (player.spellCooldown > 0) {
+        player.spellCooldown = Math.max(0, player.spellCooldown - rawDt);
+        const cdEl = document.getElementById('spell-cd-overlay');
+        if (player.spellCooldown > 0) {
+          cdEl.classList.remove('hidden');
+          cdEl.textContent = `${player.spellCooldown.toFixed(1)}s`;
+        } else {
+          cdEl.classList.add('hidden');
+        }
+      }
+
+      // Stamina Regeneration when not attacking/dodging/charging
+      if (player.state === 'idle' || player.state === 'move') {
+        player.stamina = Math.min(player.maxStamina, player.stamina + 26 * rawDt);
+      }
+
+      const moveInput = getMovementInputVector();
+      const pParts = player.parts;
+
+      if (player.state === 'idle' || player.state === 'move') {
+        pParts.slashArc.material.opacity = 0;
+        pParts.leftArmPivot.rotation.set(0, 0, 0);
+
+        if (moveInput.lengthSq() > 0.01) {
+          player.state = 'move';
+          const inputMag = Math.min(1.0, moveInput.length());
+          const moveSpeed = 9.4 * inputMag;
+          const dirVec = moveInput.clone().normalize();
+          player.pos.addScaledVector(dirVec, moveSpeed * dt);
+          const desiredYaw = Math.atan2(dirVec.x, dirVec.z);
+          const diff = Math.atan2(Math.sin(desiredYaw - player.yaw), Math.cos(desiredYaw - player.yaw));
+          player.yaw += diff * Math.min(1, dt * 12);
+
+          // Running leg/arm stride cycle scaled smoothly by analog input magnitude
+          const walkCycle = elapsedTime * (11 * Math.max(0.4, inputMag));
+          pParts.leftLeg.rotation.x = Math.sin(walkCycle) * (0.65 * Math.max(0.4, inputMag));
+          pParts.rightLeg.rotation.x = -Math.sin(walkCycle) * (0.65 * Math.max(0.4, inputMag));
+          pParts.rightArmPivot.rotation.x = -0.3 + Math.cos(walkCycle) * 0.25;
+        } else {
+          player.state = 'idle';
+          pParts.leftLeg.rotation.x = 0;
+          pParts.rightLeg.rotation.x = 0;
+          pParts.rightArmPivot.rotation.set(-0.2 + Math.sin(elapsedTime * 2.5) * 0.06, 0, 0);
+        }
+      } else if (player.state === 'charge') {
+        player.chargeTime = Math.min(1.2, player.chargeTime + rawDt);
+        document.getElementById('charge-bar-fill').style.width = `${(player.chargeTime / 1.0) * 100}%`;
+        pParts.rightArmPivot.rotation.set(-2.1, 0, -0.3);
+        if (player.chargeTime >= 1.15) {
+          releaseChargedHeavy();
+        }
+      } else if (player.state === 'attack' || player.state === 'heavy') {
+        player.stateTimer -= rawDt;
+        const forward = new THREE.Vector3(Math.sin(player.yaw), 0, Math.cos(player.yaw));
+        player.pos.addScaledVector(forward, 3.8 * rawDt);
+
+        // Animate Weapon Slash & Trail Ribbon
+        pParts.slashArc.material.opacity = 0.78;
+        pParts.slashArc.rotation.z += rawDt * 18;
+        const swingDir = player.comboStep % 2 === 1 ? 1 : -1;
+        pParts.rightArmPivot.rotation.set(0.9, swingDir * 0.8, swingDir * 0.5);
+
+        // Check Hit Detection against Boss at mid-swing
+        if (!player.hitCalculatedThisSwing && player.stateTimer < 0.22) {
+          player.hitCalculatedThisSwing = true;
+          const strikePoint = player.pos.clone().addScaledVector(forward, currentWeapon.reach * 0.65);
+          if (strikePoint.distanceTo(boss.pos) <= currentWeapon.reach + 1.8) {
+            if (player.state === 'heavy') {
+              const mult = 1.65 + Math.min(0.85, player.chargeTime);
+              damageBoss(currentWeapon.dmg * mult, currentWeapon.poiseDmg * 2.1, 'heavy');
+              spawnShockwaveRing(strikePoint, currentWeapon.color, 4.2, 0.35);
+            } else {
+              const comboMult = player.comboStep === 3 ? 1.35 : 1.0;
+              damageBoss(currentWeapon.dmg * comboMult, currentWeapon.poiseDmg * comboMult, 'melee');
+            }
+          }
+        }
+
+        if (player.stateTimer <= 0) {
+          player.state = 'idle';
+          pParts.slashArc.material.opacity = 0;
+        }
+      } else if (player.state === 'dodge') {
+        player.stateTimer -= rawDt;
+        const forward = new THREE.Vector3(Math.sin(player.yaw), 0, Math.cos(player.yaw));
+        player.pos.addScaledVector(forward, 16.5 * rawDt);
+        pParts.rig.rotation.x = (1 - player.stateTimer / 0.38) * Math.PI * 2;
+        if (player.stateTimer <= 0) {
+          pParts.rig.rotation.x = 0;
+          player.state = 'idle';
+        }
+      } else if (player.state === 'block') {
+        player.stateTimer -= rawDt;
+        pParts.leftArmPivot.rotation.set(-0.9, 0.6, 0);
+        if (player.stateTimer <= 0 && !keys['q'] && !keys['f']) {
+          player.state = 'idle';
+        }
+      } else if (player.state === 'stagger') {
+        player.stateTimer -= rawDt;
+        pParts.rig.rotation.x = -0.35;
+        if (player.stateTimer <= 0) {
+          pParts.rig.rotation.x = 0;
+          player.state = 'idle';
+        }
+      }
+
+      // Clamp player to arena boundary
+      if (player.pos.length() > ARENA_RADIUS - 1.5) {
+        player.pos.setLength(ARENA_RADIUS - 1.5);
+      }
+      player.group.position.copy(player.pos);
+      if (pParts.sanctumCore) {
+        pParts.sanctumCore.rotation.y += rawDt * 3;
+      }
+      pParts.cape.rotation.x = 0.22 + Math.sin(elapsedTime * 6) * 0.12;
+
+      // 3. Update Boss AI & Procedural Boss Limb Animations
+      updateBossAI(dt);
+      animateBossParts(elapsedTime, dt);
+
+      // 4. Update Active Projectiles
+      for (let i = activeProjectiles.length - 1; i >= 0; i--) {
+        const p = activeProjectiles[i];
+        p.age += dt;
+
+        if (p.homing && boss.state !== 'dead') {
+          const desired = new THREE.Vector3().subVectors(boss.pos, p.pos).normalize().multiplyScalar(20);
+          p.vel.lerp(desired, dt * 4.5);
+        }
+
+        p.pos.addScaledVector(p.vel, dt);
+        p.mesh.position.copy(p.pos);
+        p.mesh.rotation.y += dt * 6;
+
+        if (p.fromPlayer) {
+          if (p.pos.distanceTo(new THREE.Vector3(boss.pos.x, p.pos.y, boss.pos.z)) < p.radius + 1.4) {
+            damageBoss(p.dmg, p.poiseDmg, 'spell');
+            scene.remove(p.mesh);
+            activeProjectiles.splice(i, 1);
+            continue;
+          }
+        } else {
+          if (p.pos.distanceTo(new THREE.Vector3(player.pos.x, p.pos.y, player.pos.z)) < p.radius) {
+            attemptDamagePlayer(p.dmg, p.pos, true);
+            scene.remove(p.mesh);
+            activeProjectiles.splice(i, 1);
+            continue;
+          }
+        }
+
+        if (p.age >= p.maxLife) {
+          scene.remove(p.mesh);
+          activeProjectiles.splice(i, 1);
+        }
+      }
+
+      // 5. Update Ground Telegraph Warning Zones
+      for (let i = activeTelegraphs.length - 1; i >= 0; i--) {
+        const t = activeTelegraphs[i];
+        t.age += dt;
+        const prog = Math.min(1, t.age / t.duration);
+        t.fillDisc.scale.set(prog, prog, 1);
+        if (prog >= 1) {
+          if (t.onDetonate) t.onDetonate(t.pos);
+          scene.remove(t.group);
+          activeTelegraphs.splice(i, 1);
+        }
+      }
+
+      // 6. Update Shockwaves & Particles
+      for (let i = activeShockwaves.length - 1; i >= 0; i--) {
+        const s = activeShockwaves[i];
+        s.age += rawDt;
+        const p = s.age / s.duration;
+        const sc = 1 + p * s.maxRadius;
+        s.mesh.scale.set(sc, sc, 1);
+        s.mesh.material.opacity = Math.max(0, (1 - p) * 0.85);
+        if (p >= 1) {
+          scene.remove(s.mesh);
+          activeShockwaves.splice(i, 1);
+        }
+      }
+
+      for (let i = activeParticles.length - 1; i >= 0; i--) {
+        const pt = activeParticles[i];
+        pt.age += rawDt;
+        pt.vel.y -= 14 * rawDt;
+        pt.mesh.position.addScaledVector(pt.vel, rawDt);
+        if (pt.mesh.position.y < 0.1) pt.mesh.position.y = 0.1;
+        pt.mesh.scale.setScalar(Math.max(0.01, 1 - pt.age / pt.maxLife));
+        if (pt.age >= pt.maxLife) {
+          scene.remove(pt.mesh);
+          activeParticles.splice(i, 1);
+        }
+      }
+
+      // 7. Update Third-Person Lock-On / Orbit Camera & 3D Lock-On Reticle
+      updateCameraAndLockOnUI(rawDt);
+      updateHUD();
+      if (typeof updateMovingScrollbarThumb === 'function') updateMovingScrollbarThumb();
+
+      renderer.render(scene, camera);
+    }
+
+    function animateBossParts(elapsedTime, dt) {
+      const bp = boss.parts;
+      if (!bp.rig) return;
+
+      if (boss.index === 0) {
+        // Vaelgor Knight animations
+        if (boss.state === 'move') {
+          bp.legL.rotation.x = Math.sin(elapsedTime * 5.5) * 0.55;
+          bp.legR.rotation.x = -Math.sin(elapsedTime * 5.5) * 0.55;
+        } else {
+          bp.legL.rotation.x = 0;
+          bp.legR.rotation.x = 0;
+        }
+
+        // Magma pulse on furnace & eye
+        if (bp.emberMat) {
+          const pulse = 0.75 + Math.sin(elapsedTime * 4) * 0.25;
+          bp.emberMat.emissiveIntensity = boss.phase === 2 ? pulse * 1.5 : pulse;
+        }
+
+        if (boss.state === 'windup') {
+          bp.rightArm.rotation.x = -2.2;
+          if (boss.currentAttack === 'leap_slam') {
+            bp.rig.position.y = Math.sin((1 - boss.stateTimer) * Math.PI) * 6.5;
+          }
+        } else if (boss.state === 'strike') {
+          bp.rightArm.rotation.x = 1.1;
+          bp.rig.position.y = 0;
+        } else {
+          bp.rightArm.rotation.x = Math.sin(elapsedTime * 2) * 0.15;
+          bp.rig.position.y = 0;
+        }
+      } else if (boss.index === 1) {
+        // Seraphina Celestial Mage animations
+        bp.rig.position.y = 0.8 + Math.sin(elapsedTime * 2.4) * 0.45;
+        bp.halo.rotation.z += dt * 1.6;
+
+        // Counter-rotate astrolabe armillary sphere rings on staff
+        if (bp.astrolabeHead) {
+          bp.astrolabeHead.rotation.x += dt * 2.2;
+          bp.astrolabeHead.rotation.y += dt * 3.1;
+        }
+
+        // Animate 6 Crystalline Wings undulating
+        if (bp.leftWings && bp.rightWings) {
+          bp.leftWings.forEach((w, idx) => {
+            w.rotation.z = Math.sin(elapsedTime * 3.5 + idx * 0.4) * 0.22;
+          });
+          bp.rightWings.forEach((w, idx) => {
+            w.rotation.z = -Math.sin(elapsedTime * 3.5 + idx * 0.4) * 0.22;
+          });
+        }
+
+        // Animate 3 Orbiting Celestial Satellites
+        if (bp.satellites) {
+          bp.satellites.forEach((sat, idx) => {
+            const satAngle = elapsedTime * 2.2 + (idx * Math.PI * 2) / 3;
+            sat.position.set(Math.cos(satAngle) * 2.5, 3.8 + Math.sin(satAngle * 2) * 0.6, Math.sin(satAngle) * 2.5);
+            sat.rotation.y += dt * 4;
+          });
+        }
+
+        if (boss.state === 'windup') {
+          bp.rightArm.rotation.x = -1.4;
+        } else if (boss.state === 'strike') {
+          bp.rightArm.rotation.x = 0.6;
+        } else {
+          bp.rightArm.rotation.x = 0;
+        }
+      } else if (boss.index === 2) {
+        // MALAKOR SHADOW DRAGON ANIMATIONS (ORGANIC QUADRUPED & DYNAMIC FLIGHT)
+        const isAirborne = boss.state === 'windup' && boss.currentAttack === 'dive_bomb';
+        const wingSpeed = isAirborne ? 11.0 : (boss.phase === 2 ? 7.8 : 5.2);
+        const wingFlap = Math.sin(elapsedTime * wingSpeed);
+
+        // Dynamic Articulated Wings (Roll + Pitch for realistic bat flight)
+        bp.leftWing.rotation.z = wingFlap * 0.52;
+        bp.leftWing.rotation.x = Math.cos(elapsedTime * wingSpeed) * 0.18 - (isAirborne ? 0.35 : 0.15);
+        bp.rightWing.rotation.z = -wingFlap * 0.52;
+        bp.rightWing.rotation.x = Math.cos(elapsedTime * wingSpeed) * 0.18 - (isAirborne ? 0.35 : 0.15);
+
+        // Animate Heartbeat Pulse on Abyssal Heart Core
+        if (bp.coreMat) {
+          const isExposed = boss.coreWeaknessExposed || (boss.state === 'windup' && boss.currentAttack === 'breath_sweep');
+          const heartSpeed = isExposed ? 14 : (boss.phase === 2 ? 9 : 6);
+          const heartPulse = 0.95 + Math.sin(elapsedTime * heartSpeed) * 0.45;
+          bp.coreMat.emissiveIntensity = isExposed ? heartPulse * 2.2 : (boss.phase === 2 ? heartPulse * 1.6 : heartPulse);
+          if (bp.chestCore) {
+            bp.chestCore.scale.setScalar(1.0 + Math.sin(elapsedTime * heartSpeed) * (isExposed ? 0.18 : 0.08));
+          }
+        }
+
+        // Animate Head, Neck & Jaw
+        if (bp.headGroup && bp.jaw) {
+          if (boss.state === 'windup' && boss.currentAttack === 'breath_sweep') {
+            // Rearing head back to inhale shadow flame
+            bp.headGroup.rotation.x = -0.38;
+            bp.headGroup.rotation.y = 0;
+            bp.jaw.rotation.x = 0.75;
+            if (bp.throatFlame) bp.throatFlame.scale.setScalar(2.6);
+          } else if (boss.state === 'strike' && boss.currentAttack === 'breath_sweep') {
+            // Sweeping head across the arena to unleash breath
+            bp.headGroup.rotation.x = 0.12;
+            bp.headGroup.rotation.y = Math.sin(elapsedTime * 14) * 0.52;
+            bp.jaw.rotation.x = 0.65;
+            if (bp.throatFlame) bp.throatFlame.scale.setScalar(2.2);
+          } else if (isAirborne) {
+            // Looking down at arena target
+            bp.headGroup.rotation.x = 0.55;
+            bp.headGroup.rotation.y = 0;
+            bp.jaw.rotation.x = 0.45;
+            if (bp.throatFlame) bp.throatFlame.scale.setScalar(1.8);
+          } else if (boss.state === 'staggered') {
+            // Staggered: head hangs limp on floor
+            bp.headGroup.position.y = 2.4;
+            bp.headGroup.rotation.x = 0.55;
+            bp.jaw.rotation.x = 0.55;
+          } else {
+            // Natural idle head bob & survey
+            bp.headGroup.position.y = 4.8 + Math.sin(elapsedTime * 2.2) * 0.08;
+            bp.headGroup.rotation.x = Math.sin(elapsedTime * 1.8) * 0.06;
+            bp.headGroup.rotation.y = THREE.MathUtils.lerp(bp.headGroup.rotation.y, 0, dt * 5);
+            bp.jaw.rotation.x = Math.max(0, bp.jaw.rotation.x - dt * 3.5);
+            if (bp.throatFlame) bp.throatFlame.scale.setScalar(1.0);
+          }
+        }
+
+        // Quadruped Leg Stride & Stance Animation
+        if (bp.foreLegL && bp.foreLegR && bp.hindLegL && bp.hindLegR) {
+          if (isAirborne) {
+            // Airborne dive: legs tucked under belly
+            bp.foreLegL.rotation.x = THREE.MathUtils.lerp(bp.foreLegL.rotation.x, 0.75, dt * 8);
+            bp.foreLegR.rotation.x = THREE.MathUtils.lerp(bp.foreLegR.rotation.x, 0.75, dt * 8);
+            bp.hindLegL.rotation.x = THREE.MathUtils.lerp(bp.hindLegL.rotation.x, -0.65, dt * 8);
+            bp.hindLegR.rotation.x = THREE.MathUtils.lerp(bp.hindLegR.rotation.x, -0.65, dt * 8);
+            if (bp.foreLegL.kneeGroup) bp.foreLegL.kneeGroup.rotation.x = 0.4;
+            if (bp.foreLegR.kneeGroup) bp.foreLegR.kneeGroup.rotation.x = 0.4;
+          } else if (boss.state === 'move') {
+            // Natural Quadruped Walking Gait:
+            // Diagonal pairs: Fore Left + Hind Right vs Fore Right + Hind Left
+            const walkSpeed = boss.phase === 2 ? 6.8 : 5.2;
+            const stride = Math.sin(elapsedTime * walkSpeed);
+
+            bp.foreLegL.rotation.x = stride * 0.45;
+            bp.hindLegR.rotation.x = stride * 0.40;
+            bp.foreLegR.rotation.x = -stride * 0.45;
+            bp.hindLegL.rotation.x = -stride * 0.40;
+
+            // Knee flex during swing to lift paw naturally
+            if (bp.foreLegL.kneeGroup) bp.foreLegL.kneeGroup.rotation.x = Math.max(0, -stride * 0.55);
+            if (bp.foreLegR.kneeGroup) bp.foreLegR.kneeGroup.rotation.x = Math.max(0, stride * 0.55);
+            if (bp.hindLegL.kneeGroup) bp.hindLegL.kneeGroup.rotation.x = Math.max(0, stride * 0.45);
+            if (bp.hindLegR.kneeGroup) bp.hindLegR.kneeGroup.rotation.x = Math.max(0, -stride * 0.45);
+
+            // Torso walking heave
+            if (bp.body) bp.body.position.y = 2.7 + Math.abs(Math.sin(elapsedTime * walkSpeed * 2)) * 0.12;
+          } else if (boss.state === 'strike' && boss.currentAttack === 'claw_rend') {
+            // Lunging Claw Strike
+            bp.foreLegR.rotation.x = -0.95;
+            bp.foreLegR.rotation.z = -0.35;
+          } else if (boss.state === 'staggered') {
+            // Staggered posture: collapsed onto knees
+            bp.foreLegL.rotation.x = 0.65;
+            bp.foreLegR.rotation.x = 0.65;
+            bp.hindLegL.rotation.x = -0.35;
+            bp.hindLegR.rotation.x = -0.35;
+            if (bp.body) bp.body.position.y = 1.9;
+          } else {
+            // Neutral idle stance with breathing
+            bp.foreLegL.rotation.x = THREE.MathUtils.lerp(bp.foreLegL.rotation.x, 0, dt * 6);
+            bp.foreLegR.rotation.x = THREE.MathUtils.lerp(bp.foreLegR.rotation.x, 0, dt * 6);
+            bp.foreLegR.rotation.z = THREE.MathUtils.lerp(bp.foreLegR.rotation.z, 0, dt * 6);
+            bp.hindLegL.rotation.x = THREE.MathUtils.lerp(bp.hindLegL.rotation.x, 0, dt * 6);
+            bp.hindLegR.rotation.x = THREE.MathUtils.lerp(bp.hindLegR.rotation.x, 0, dt * 6);
+            if (bp.foreLegL.kneeGroup) bp.foreLegL.kneeGroup.rotation.x = THREE.MathUtils.lerp(bp.foreLegL.kneeGroup.rotation.x, 0, dt * 6);
+            if (bp.foreLegR.kneeGroup) bp.foreLegR.kneeGroup.rotation.x = THREE.MathUtils.lerp(bp.foreLegR.kneeGroup.rotation.x, 0, dt * 6);
+            if (bp.hindLegL.kneeGroup) bp.hindLegL.kneeGroup.rotation.x = THREE.MathUtils.lerp(bp.hindLegL.kneeGroup.rotation.x, 0, dt * 6);
+            if (bp.hindLegR.kneeGroup) bp.hindLegR.kneeGroup.rotation.x = THREE.MathUtils.lerp(bp.hindLegR.kneeGroup.rotation.x, 0, dt * 6);
+
+            // Deep breathing chest heave
+            if (bp.body) bp.body.position.y = 2.7 + Math.sin(elapsedTime * 2.2) * 0.05;
+          }
+        }
+
+        // Animate Multi-Segment Tail Sinuous Wave & Whip
+        if (bp.tailSegments) {
+          const isTailWhip = boss.state === 'strike' && boss.currentAttack === 'tail_whip';
+          bp.tailSegments.forEach((seg, idx) => {
+            if (isTailWhip) {
+              seg.rotation.y = Math.sin(elapsedTime * 18 - idx * 0.35) * 0.48;
+            } else {
+              seg.rotation.y = Math.sin(elapsedTime * 4.0 - idx * 0.45) * 0.22;
+              seg.rotation.x = Math.cos(elapsedTime * 2.2 - idx * 0.3) * 0.06;
+            }
+          });
+        }
+
+        // Flight Elevation vs Grounding
+        if (boss.state === 'windup' && boss.currentAttack === 'dive_bomb') {
+          bp.rig.position.y = Math.min(12, bp.rig.position.y + dt * 16);
+        } else if (boss.state === 'windup' && boss.currentAttack === 'tail_whip') {
+          bp.rig.rotation.y += dt * 12;
+        } else {
+          bp.rig.position.y = Math.max(0, bp.rig.position.y - dt * 20);
+          bp.rig.rotation.y = 0;
+        }
+      }
+    }
+
+    function updateCameraAndLockOnUI(rawDt) {
+      const reticle = document.getElementById('lockon-reticle');
+
+      if (isLockedOn && boss.state !== 'dead') {
+        const toBoss = new THREE.Vector3().subVectors(boss.pos, player.pos);
+        const targetAngle = Math.atan2(toBoss.x, toBoss.z);
+        const diff = Math.atan2(Math.sin(targetAngle - camOrbitYaw), Math.cos(targetAngle - camOrbitYaw));
+        camOrbitYaw += diff * Math.min(1, rawDt * 7);
+
+        // Project 3D Reticle onto Boss Center/Weakpoint
+        const lockPos = boss.pos.clone().add(new THREE.Vector3(0, 3.0, 0));
+        lockPos.project(camera);
+        if (lockPos.z < 1) {
+          reticle.classList.remove('hidden');
+          reticle.style.left = `${(lockPos.x * 0.5 + 0.5) * window.innerWidth}px`;
+          reticle.style.top = `${(-(lockPos.y * 0.5) + 0.5) * window.innerHeight}px`;
+        } else {
+          reticle.classList.add('hidden');
+        }
+      } else {
+        reticle.classList.add('hidden');
+      }
+
+      const camDist = userCamDist;
+      const camHeight = 4.6 + camOrbitPitch * 5.5;
+      const desiredCamPos = new THREE.Vector3(
+        player.pos.x - Math.sin(camOrbitYaw) * camDist,
+        player.pos.y + camHeight,
+        player.pos.z - Math.cos(camOrbitYaw) * camDist
+      );
+
+      if (cameraShake > 0) {
+        cameraShake = Math.max(0, cameraShake - rawDt * 2.2);
+        desiredCamPos.x += (Math.random() - 0.5) * cameraShake * 1.4;
+        desiredCamPos.y += (Math.random() - 0.5) * cameraShake * 1.4;
+      }
+
+      camera.position.lerp(desiredCamPos, Math.min(1, rawDt * 12));
+
+      const lookTarget = isLockedOn && boss.state !== 'dead'
+        ? player.pos.clone().lerp(boss.pos, 0.42).add(new THREE.Vector3(0, 2.1, 0))
+        : player.pos.clone().add(new THREE.Vector3(0, 2.2, 0));
+      camera.lookAt(lookTarget);
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Launch Game on Window Load
+    window.onload = function () {
+      startBossEncounter(0);
+      if (typeof updateMovingScrollbarUI === 'function') updateMovingScrollbarUI(0);
+      animate();
+    };
+  </script>
+</body>
+</html>
