@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/banner.png" alt="3D-ARENA Banner" width="100%">
+</p>
+
 # ⚔️ ECLIPSE SANCTUM — 3D Fantasy Boss Rush Action RPG
 
 [![Status](https://img.shields.io/badge/Status-Implementation--Ready-emerald?style=for-the-badge)](https://github.com/)
