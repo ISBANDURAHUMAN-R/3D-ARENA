@@ -2,6 +2,14 @@
   <img src="assets/banner.png" alt="3D-ARENA Banner" width="100%">
 </p>
 
+<div align="center">
+
+[![Live Demo](https://img.shields.io/badge/Live_Website-Active_Deployment-00C853?style=for-the-badge&logo=googlechrome&logoColor=white)](https://isbandurahuman-r.github.io/3D-ARENA/)
+
+🚀 **[Launch 3D WebGL Shader Arena ➔](https://isbandurahuman-r.github.io/3D-ARENA/)**
+
+</div>
+
 # ⚔️ ECLIPSE SANCTUM — 3D Fantasy Boss Rush Action RPG
 
 [![Status](https://img.shields.io/badge/Status-Implementation--Ready-emerald?style=for-the-badge)](https://github.com/)
