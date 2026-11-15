@@ -4,6 +4,8 @@
 
 # ◈ Eclipse Sanctum — 3D Fantasy Boss Rush
 
+[![CI](https://github.com/ISBANDURAHUMAN-R/3D-ARENA/actions/workflows/ci.yml/badge.svg)](https://github.com/ISBANDURAHUMAN-R/3D-ARENA/actions/workflows/ci.yml)
+
 ## ◆ About the Project
 Eclipse Sanctum is a real-time third-person 3D action boss rush game built entirely within the browser using Three.js and WebGL. Players control an armored knight atop a suspended gothic arena beneath an eclipse, engaging in combat encounters against three multi-phase boss adversaries.
 
@@ -13,6 +15,40 @@ Eclipse Sanctum is a real-time third-person 3D action boss rush game built entir
 - Three unique boss encounters with distinct attack telegraphs, weak points, and second-phase transformations.
 - 100% procedural sound synthesis engine built with the Web Audio API for metal impacts, dragon roars, and ambient atmospheric effects.
 - Dual input control scheme supporting keyboard/mouse controls and a mobile touchscreen virtual analog stick.
+
+## ◆ System Architecture
+```mermaid
+graph TD
+    subgraph CoreLoop ["RequestAnimationFrame Engine (60 FPS)"]
+        Clock[Three.js Clock / DeltaTime] --> Update[Update Subsystems]
+        Update --> Render[WebGLRenderer Pass]
+    end
+
+    subgraph InputState ["Dual Input Manager"]
+        Keyb[Keyboard & Mouse] --> InputBus[Input Action State]
+        Touch[Virtual Touch Stick] --> InputBus
+        InputBus --> CombatSM[Combat State Machine<br/>Combo | Roll | Parry | Cast]
+    end
+
+    subgraph WorldScene ["Three.js Scene Graph"]
+        Scene[Scene Root] --> Arena[Suspended Gothic Arena]
+        Scene --> Knight[Player Model & Procedural Skeleton]
+        Scene --> Bosses[Boss Multi-Phase Controllers]
+        Scene --> FX[Particle Systems & Dynamic Lighting]
+    end
+
+    subgraph AudioEngine ["Procedural Web Audio API"]
+        CombatSM --> Synth[Oscillator & Noise Synthesis]
+        Bosses --> Synth
+        Synth --> Gain[Gain & Convolver Reverb]
+        Gain --> Destination[Audio Output Destination]
+    end
+
+    CombatSM --> Knight
+    Update --> CombatSM
+    Update --> Bosses
+    Update --> FX
+```
 
 ## ⬢ Technologies Used
 - Three.js (r128)

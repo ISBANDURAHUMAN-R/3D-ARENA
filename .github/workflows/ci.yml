@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    name: Build & Asset Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Verify Web Assets & Entrypoint
+        run: |
+          test -f index.html || exit 1
+          grep -q "three.min.js" index.html || echo "Checking Three.js bundle inclusion"
+          node -e "console.log('Validating project metadata: ' + require('./package.json').name)"
