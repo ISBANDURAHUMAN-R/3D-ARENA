@@ -20,28 +20,28 @@ Eclipse Sanctum is a real-time third-person 3D action boss rush game built entir
 ```mermaid
 graph TD
     subgraph CoreLoop ["RequestAnimationFrame Engine (60 FPS)"]
-        Clock[Three.js Clock / DeltaTime] --> Update[Update Subsystems]
-        Update --> Render[WebGLRenderer Pass]
+        Clock["Three.js Clock / DeltaTime"] --> Update["Update Subsystems"]
+        Update --> Render["WebGLRenderer Pass"]
     end
 
     subgraph InputState ["Dual Input Manager"]
-        Keyb[Keyboard & Mouse] --> InputBus[Input Action State]
-        Touch[Virtual Touch Stick] --> InputBus
-        InputBus --> CombatSM[Combat State Machine<br/>Combo | Roll | Parry | Cast]
+        Keyb["Keyboard & Mouse"] --> InputBus["Input Action State"]
+        Touch["Virtual Touch Stick"] --> InputBus
+        InputBus --> CombatSM["Combat State Machine<br/>Combo • Roll • Parry • Cast"]
     end
 
     subgraph WorldScene ["Three.js Scene Graph"]
-        Scene[Scene Root] --> Arena[Suspended Gothic Arena]
-        Scene --> Knight[Player Model & Procedural Skeleton]
-        Scene --> Bosses[Boss Multi-Phase Controllers]
-        Scene --> FX[Particle Systems & Dynamic Lighting]
+        Scene["Scene Root"] --> Arena["Suspended Gothic Arena"]
+        Scene --> Knight["Player Model & Procedural Skeleton"]
+        Scene --> Bosses["Boss Multi-Phase Controllers"]
+        Scene --> FX["Particle Systems & Dynamic Lighting"]
     end
 
     subgraph AudioEngine ["Procedural Web Audio API"]
-        CombatSM --> Synth[Oscillator & Noise Synthesis]
+        CombatSM --> Synth["Oscillator & Noise Synthesis"]
         Bosses --> Synth
-        Synth --> Gain[Gain & Convolver Reverb]
-        Gain --> Destination[Audio Output Destination]
+        Synth --> Gain["Gain & Convolver Reverb"]
+        Gain --> Destination["Audio Output Destination"]
     end
 
     CombatSM --> Knight
