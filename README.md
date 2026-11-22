@@ -19,29 +19,29 @@ Eclipse Sanctum is a real-time third-person 3D action boss rush game built entir
 ## ◆ System Architecture
 ```mermaid
 graph TD
-    subgraph CoreLoop ["RequestAnimationFrame Engine (60 FPS)"]
-        Clock["Three.js Clock /<br/>DeltaTime"] --> Update["Update Subsystems"]
-        Update --> Render["WebGLRenderer Pass"]
+    subgraph CoreLoop ["&nbsp; RequestAnimationFrame Engine (60 FPS) &nbsp;"]
+        Clock["&nbsp; Three.js Clock / &nbsp;<br/>&nbsp; DeltaTime &nbsp;"] --> Update["&nbsp; Update &nbsp;<br/>&nbsp; Subsystems &nbsp;"]
+        Update --> Render["&nbsp; WebGLRenderer &nbsp;<br/>&nbsp; Pass &nbsp;"]
     end
 
-    subgraph InputState ["Dual Input Manager"]
-        Keyb["Keyboard & Mouse"] --> InputBus["Input Action State"]
-        Touch["Virtual Touch Stick"] --> InputBus
-        InputBus --> CombatSM["Combat State Machine<br/>Combo • Roll<br/>Parry • Cast"]
+    subgraph InputState ["&nbsp; Dual Input Manager &nbsp;"]
+        Keyb["&nbsp; Keyboard &amp; &nbsp;<br/>&nbsp; Mouse &nbsp;"] --> InputBus["&nbsp; Input Action &nbsp;<br/>&nbsp; State &nbsp;"]
+        Touch["&nbsp; Virtual Touch &nbsp;<br/>&nbsp; Stick &nbsp;"] --> InputBus
+        InputBus --> CombatSM["&nbsp; Combat State Machine &nbsp;<br/>&nbsp; Combo • Roll &nbsp;<br/>&nbsp; Parry • Cast &nbsp;"]
     end
 
-    subgraph WorldScene ["Three.js Scene Graph"]
-        Scene["Scene Root"] --> Arena["Suspended Gothic Arena"]
-        Scene --> Knight["Player Model &<br/>Procedural Skeleton"]
-        Scene --> Bosses["Boss Multi-Phase<br/>Controllers"]
-        Scene --> FX["Particle Systems &<br/>Dynamic Lighting"]
+    subgraph WorldScene ["&nbsp; Three.js Scene Graph &nbsp;"]
+        Scene["&nbsp; Scene Root &nbsp;"] --> Arena["&nbsp; Suspended &nbsp;<br/>&nbsp; Gothic Arena &nbsp;"]
+        Scene --> Knight["&nbsp; Player Model &amp; &nbsp;<br/>&nbsp; Skeleton &nbsp;"]
+        Scene --> Bosses["&nbsp; Boss Multi-Phase &nbsp;<br/>&nbsp; Controllers &nbsp;"]
+        Scene --> FX["&nbsp; Particle Systems &nbsp;<br/>&nbsp; &amp; Lighting &nbsp;"]
     end
 
-    subgraph AudioEngine ["Procedural Web Audio API"]
-        CombatSM --> Synth["Oscillator &<br/>Noise Synthesis"]
+    subgraph AudioEngine ["&nbsp; Procedural Web Audio API &nbsp;"]
+        CombatSM --> Synth["&nbsp; Oscillator &amp; &nbsp;<br/>&nbsp; Noise Synth &nbsp;"]
         Bosses --> Synth
-        Synth --> Gain["Gain & Convolver Reverb"]
-        Gain --> Destination["Audio Output Destination"]
+        Synth --> Gain["&nbsp; Gain &amp; &nbsp;<br/>&nbsp; Reverb &nbsp;"]
+        Gain --> Destination["&nbsp; Audio Output &nbsp;<br/>&nbsp; Destination &nbsp;"]
     end
 
     CombatSM --> Knight
